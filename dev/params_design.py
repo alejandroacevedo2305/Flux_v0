@@ -9,8 +9,6 @@ def non_empty_subsets(lst):
     return list(chain.from_iterable(combinations(lst, r) for r in range(1, len(lst) + 1)))
 
 
-
-
 un_dia   = forecast().un_mes().un_dia().df.sort_values(by='FH_Emi', inplace=False)
 sucursal = 2
 un_dia   = un_dia[un_dia.IdOficina == sucursal] #9 2
@@ -20,20 +18,14 @@ SLAs     = [(0.84, 10), (0.34, 25), (0.8, 33)]
 niveles_servicio_x_serie = {s:random.choice(SLAs) for s in series}
 # modos_atenciones=["Alternancia", "FIFO", "Rebalse"]
 # max_escritorios = len(skills.keys())
-
 # prioridades = prioridad_x_serie(niveles_servicio_x_serie,2,1) 
-
 # action_space = get_action_space(
 #     skills     = skills, 
 #     config_set = modos_atenciones, 
 #     time_start = str(un_dia.FH_Emi.min().time()), 
 #     time_end   = str(un_dia.FH_Emi.max().time())
 # )
-
 # plan = convert_output(action_space.sample(), skills_set = series, config_set = modos_atenciones)
-
-
-
 # Optuna multi-objective function
 def objective(trial, un_dia,skills, niveles_servicio_x_serie,  modos_atenciones:list = ["Alternancia", "FIFO", "Rebalse"]):
     try:
