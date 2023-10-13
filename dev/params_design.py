@@ -6,7 +6,6 @@ from src.simulador_v02 import *
 from src.gymnasium_utils import *  
 
 un_dia   = forecast().un_mes().un_dia().df.sort_values(by='FH_Emi', inplace=False)
-
 sucursal = 2
 un_dia   = un_dia[un_dia.IdOficina == sucursal] #9 2
 skills   = obtener_skills(un_dia)
@@ -25,11 +24,8 @@ action_space = get_action_space(
     time_end   = str(un_dia.FH_Emi.max().time())
 )
 
-# plan = convert_output(action_space.sample(), skills_set = series, config_set = modos_atenciones)
-
-# registros_SLA =   simular(plan, niveles_servicio_x_serie, un_dia, prioridades)  
-
- 
+plan = convert_output(action_space.sample(), skills_set = series, config_set = modos_atenciones)
+# registros_SLA =   simular(plan, niveles_servicio_x_serie, un_dia, prioridades)   
 from scipy.stats import gmean
 
 #gmean(registros_SLA .drop("hora", axis=1).iloc[-1].dropna())
@@ -45,7 +41,7 @@ def objective(trial, skills):
         modos_atenciones = ["Alternancia", "FIFO", "Rebalse"]
         series = sorted(list({val for sublist in skills.values() for val in sublist}))
         str_dict = {i: trial.suggest_categorical('modo atención', modos_atenciones) for i in range(len(skills.keys()))}
-        subset_dict = {i: trial.suggest_categorical('series', non_empty_subsets(series)) for _ in range(len(skills.keys()))}
+        subset_dict = {'serie': trial.suggest_categorical('series', non_empty_subsets(series)) for _ in range(len(skills.keys()))}
 
         # Storing user attributes
         trial.set_user_attr('bool_vector', bool_vector)
@@ -81,7 +77,7 @@ study.optimize(lambda trial: objective(trial,
                                        #modos_atenciones         = modos_atenciones,
                                        #niveles_servicio_x_serie = niveles_servicio_x_serie
                                        ), 
-                                       n_trials                 = 20)
+                                       n_trials                 = 3)
 
 # Results: the first Pareto front (i.e., the best trade-offs between the two objectives)
 pareto_front_trials = study.get_pareto_front_trials()
