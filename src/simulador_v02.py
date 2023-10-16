@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 import random
 
    
-def generate_integer(min_val:int=1, avg_val:int=3, max_val:int=7, probabilidad_pausas:float=1.0):
+def generate_integer(min_val:int=1, avg_val:int=6, max_val:int=44, probabilidad_pausas:float=.5):
     # Validate probabilidad_pausas
     if probabilidad_pausas < 0 or probabilidad_pausas > 1:
         return -1
@@ -98,7 +98,7 @@ class MisEscritorios:
                                     'tiempo_actual_pausa':        None,
                                     'tiempo_actual_desconectado': None,
                                     'contador_tiempo_disponible': iter(count(start=0, step=1)),
-                                    'duracion_pausas': (1, 5, 10), #min, avg, max
+                                    'duracion_pausas': (1, 6, 44), #min, avg, max
                                     'probabilidad_pausas':1 , #probabilidad que la pausa ocurra
                                     } for key,(series, config) in self.skills_configuraciones.items()}        
         if not conexiones:
@@ -931,10 +931,10 @@ def sort_by_time(nuevos_escritorios_programados: List[Dict[str, any]]) -> List[D
 
     return sorted(nuevos_escritorios_programados, key=lambda x: x['hora'])
 
+import copy
 
-
-def simular(agenda, niveles_servicio_x_serie, un_dia, prioridades):
-
+def simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
+    agenda                   = copy.deepcopy(agenda_INPUT) 
     skills                   = extract_first_skills(agenda) #obtener_skills(un_dia)
     configuraciones          = {k:np.random.choice(["Alternancia", "FIFO", "Rebalse"], p=[.5,.25,.25]) for k in skills}
     #SLAs                     = [(0.8, 25),(0.9, 30),(.5, 15), (.9, 5),(.5, 25)]
