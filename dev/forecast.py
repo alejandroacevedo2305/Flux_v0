@@ -161,6 +161,8 @@ class ForecasterTTP:
         return demandas_proyectadas_cuantizada[ (inicio_dia <= demandas_proyectadas_cuantizada["FH_Emi"]) & (demandas_proyectadas_cuantizada["FH_Emi"] <= fin_dia) ]
 
 #%%
+import warnings
+warnings.filterwarnings("ignore")
 # EJEMPLO DE USO
 dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 
