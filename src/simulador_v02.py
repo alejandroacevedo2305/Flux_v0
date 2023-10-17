@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 import random
 
    
-def generate_integer(min_val:int=2, avg_val:int=10, max_val:int=44, probabilidad_pausas:float=1):
+def generate_integer(min_val:int=2, avg_val:int=10, max_val:int=44, probabilidad_pausas:float=.5):
     # Validate probabilidad_pausas
     if probabilidad_pausas < 0 or probabilidad_pausas > 1:
         return -1
@@ -99,7 +99,7 @@ class MisEscritorios:
                                     'tiempo_actual_desconectado': None,
                                     'contador_tiempo_disponible': iter(count(start=0, step=1)),
                                     'duracion_pausas': (2, 10, 44), #min, avg, max
-                                    'probabilidad_pausas':1 , #probabilidad que la pausa ocurra
+                                    'probabilidad_pausas':.5, #probabilidad que la pausa ocurra
                                     } for key,(series, config) in self.skills_configuraciones.items()}        
         if not conexiones:
         #     #si no se provee el estado de los conexiones se asumen todas como True (todos conectados):
