@@ -21,8 +21,13 @@ dataset     = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
 skills      = obtener_skills(el_dia_real)
 series      = sorted(list({val for sublist in skills.values() for val in sublist}))
-SLAs        = [(0.6, 30), (0.34, 35), (0.7, 45)]
-niveles_servicio_x_serie = {s:random.choice(SLAs) for s in series}
+#SLAs        = [(0.6, 30), (0.34, 35), (0.7, 45)]
+niveles_servicio_x_serie = {5: (0.7, 45),
+                            10: (0.34, 35),
+                            11: (0.6, 30),
+                            12: (0.34, 35),
+                            14: (0.7, 45),
+                            17: (0.7, 45)}#{s:random.choice(SLAs) for s in series}
 registros_sla            = pd.DataFrame()
 tabla_atenciones         = el_dia_real[['FH_Emi', 'IdSerie', 'T_Esp']]
 tabla_atenciones.columns = ['FH_Emi', 'IdSerie', 'espera']
@@ -31,7 +36,8 @@ SLA_df                   = pd.DataFrame()
 Espera_index =0 
 Espera_df               = pd.DataFrame()             
 
-def tiempo_espera_x_serie(registros_sla, series):   
+
+def tiempo_espera_x_serie_para_reporte(registros_sla, series):   
     esperas_x_serie = {}
     for serie in series:
         espera_una_serie    = registros_sla[registros_sla.IdSerie == serie]['espera']
@@ -40,7 +46,6 @@ def tiempo_espera_x_serie(registros_sla, series):
             esperas_x_serie     = esperas_x_serie | {serie: int(promedio_espera_cum)}
         
     return esperas_x_serie
-
 for cliente_seleccionado in tabla_atenciones.iterrows():
     
 
@@ -53,7 +58,7 @@ for cliente_seleccionado in tabla_atenciones.iterrows():
     #SLA_una_emision['espera']= un_cliente.espera[un_cliente.espera.index[0]]
     SLA_df                    = pd.concat([SLA_df, SLA_una_emision], ignore_index=True)
     ######################################################################################################################################
-    Espera_una_emision        =  pd.DataFrame(list(tiempo_espera_x_serie(registros_sla, series).items()), columns=['keys', 'values'])
+    Espera_una_emision        =  pd.DataFrame(list(tiempo_espera_x_serie_para_reporte(registros_sla, series).items()), columns=['keys', 'values'])
     Espera_index+=1
     Espera_una_emision['index']  = Espera_una_emision.shape[0]*[Espera_index]
     Espera_una_emision['hora']   = un_cliente.FH_Emi[un_cliente.FH_Emi.index[0]].time().strftime('%H:%M:%S')#
@@ -69,23 +74,37 @@ trajectorias_esperas.droplevel(0).plot(rot=45, ylabel='Tiempo espera (min.)')
 #-----------------Forecast (MM)--------------------------------
 # %%
 #-----------------------Workforce----------------------------
+import optuna
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import json
 import json
 def format_dict_for_hovertext(dictionary):
     formatted_str = ""
     for key, value in dictionary.items():
         formatted_str += f"'{key}': {json.dumps(value)},<br>"
     return formatted_str[:-4]  # Remove the trailing HTML line break
-rows       = len(el_dia_real)
-chunk_size = rows // 4
-partitions = [el_dia_real.iloc[i:i + chunk_size] for i in range(0, rows, chunk_size)]
-tramos     = [f"{str(p.FH_Emi.min().time())} - {str(p.FH_Emi.max().time())}" for p in partitions]
 
-storage              = optuna.storages.get_storage("sqlite:///multiple_studies.db")
-all_study_names      = optuna.study.get_all_study_summaries(storage)
+import optuna
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+# Connect to the SQLite database
+storage = optuna.storages.get_storage("sqlite:///workforce_manager.db")
+# Retrieve all study names
+all_study_names = optuna.study.get_all_study_summaries(storage)
 relevant_study_names = [s.study_name for s in all_study_names if "workforce_" in s.study_name]
+# Infer the number of partitions
 num_partitions = len(relevant_study_names)
+
+
+
+rows = len(el_dia_real)
+chunk_size = rows // 3
+partitions = [el_dia_real.iloc[i:i + chunk_size] for i in range(0, rows, chunk_size)]
+tramos = [f"{str(p.FH_Emi.min().time())} - {str(p.FH_Emi.max().time())}" for p in partitions]
+
+assert num_partitions == len(tramos)
+
 # Initialize the plot
 fig = make_subplots(rows=1, cols=num_partitions, shared_yaxes=True, subplot_titles=tramos)
 # Loop to load each partition study and extract all trials
@@ -133,7 +152,7 @@ for idx, tramo in enumerate(tramos):  # Assuming `tramos` is defined elsewhere
 # Show plot
 fig.update_layout(title="Subplots with Hover Information")
 fig.show()
-#%%
+
 def regenerate_global_keys(lst_of_dicts):
 
     new_list = []
@@ -169,7 +188,7 @@ for idx, tramo in enumerate(tramos):  # Assuming `tramos` is defined elsewhere
     all_trials = study.get_trials(deepcopy=False)    
     estudios = estudios | {f"{study_name}":
         {
-            i: ( trial.values[0]/(trial.values[1]+trial.values[2]), trial.user_attrs.get('planificacion')) 
+            i: ( -1*(trial.values[3]), trial.user_attrs.get('planificacion')) 
             for i, trial in enumerate(all_trials) if trial.state == optuna.trial.TrialState.COMPLETE}
         }
 mejores_configs = []
@@ -180,9 +199,15 @@ for k,v in estudios.items():
    selected_tuple = max(tuple_list, key=lambda x: x[0])
    
    mejores_configs.append(selected_tuple[1])
-mejores_configs
-#%%
+
 workforce_recommendation = regenerate_global_keys(mejores_configs)#mejores_configs[0]
 prioridades              =  prioridad_x_serie(niveles_servicio_x_serie, 2, 1) 
-registros_con_workforce  = simular(workforce_recommendation, niveles_servicio_x_serie, el_dia_real, prioridades)
+Workforce_SLAs,   Workforce_Esperas = simular(workforce_recommendation, niveles_servicio_x_serie, el_dia_real, prioridades)
+Workforce_SLAs.set_index('hora', inplace=False).plot(rot=45, ylabel='Nivel de servicio (%)')
+Workforce_Esperas.droplevel(0).plot(rot=45, ylabel='Tiempo espera (min.)')
+print(f"n Escritorios utilizados histórico: {skills.__len__()}")
+print(f"n Escritorios utilizados WorkForce: {max([c.__len__() for c in mejores_configs])}")
 # %%
+
+
+

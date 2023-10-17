@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore")
 import random
 
    
-def generate_integer(min_val:int=1, avg_val:int=6, max_val:int=44, probabilidad_pausas:float=.5):
+def generate_integer(min_val:int=2, avg_val:int=10, max_val:int=44, probabilidad_pausas:float=1):
     # Validate probabilidad_pausas
     if probabilidad_pausas < 0 or probabilidad_pausas > 1:
         return -1
@@ -98,7 +98,7 @@ class MisEscritorios:
                                     'tiempo_actual_pausa':        None,
                                     'tiempo_actual_desconectado': None,
                                     'contador_tiempo_disponible': iter(count(start=0, step=1)),
-                                    'duracion_pausas': (1, 6, 44), #min, avg, max
+                                    'duracion_pausas': (2, 10, 44), #min, avg, max
                                     'probabilidad_pausas':1 , #probabilidad que la pausa ocurra
                                     } for key,(series, config) in self.skills_configuraciones.items()}        
         if not conexiones:
@@ -932,7 +932,15 @@ def sort_by_time(nuevos_escritorios_programados: List[Dict[str, any]]) -> List[D
     return sorted(nuevos_escritorios_programados, key=lambda x: x['hora'])
 
 import copy
-
+def tiempo_espera_x_serie(registros_sla, series):   
+    esperas_x_serie = {}
+    for serie in series:
+        espera_una_serie    = registros_sla[registros_sla.IdSerie == serie]['espera']
+        if not espera_una_serie.empty:
+            promedio_espera_cum = (espera_una_serie.expanding().mean()/1).iloc[-1]
+            esperas_x_serie     = esperas_x_serie | {serie: int(promedio_espera_cum)}
+        
+    return esperas_x_serie
 def simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
     agenda                   = copy.deepcopy(agenda_INPUT) 
     skills                   = extract_first_skills(agenda) #obtener_skills(un_dia)
@@ -952,9 +960,11 @@ def simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
     reloj_simulacion       = next(contador_tiempo)
     #avanzar_un_minuto      = False
     fila                   = pd.DataFrame()
-    simulacion             = pd.DataFrame()
+    registros_sla             = pd.DataFrame()
     SLA_df                 = pd.DataFrame()
     SLA_index              = 0
+    Espera_index            =0 
+    Espera_df               = pd.DataFrame() 
     una_emision            = next(generador_emisiones_in)
     emi                    = una_emision['FH_Emi']
 
@@ -1046,12 +1056,12 @@ def simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
                         fila = remove_selected_row(fila, cliente_seleccionado)
                         svisor.iniciar_atencion(un_escritorio, cliente_seleccionado)
                         un_cliente   = pd.DataFrame(cliente_seleccionado[['FH_Emi', 'IdSerie', 'espera']]).T
-                        simulacion   =  pd.concat([simulacion, un_cliente])#.reset_index(drop=True)
+                        registros_sla   =  pd.concat([registros_sla, un_cliente])#.reset_index(drop=True)
                         
                         
                         #SLA_una_emision  =  pd.DataFrame(list(reporte_SLA_x_serie(simulacion, 35).items()), columns=['keys', 'values'])
                         
-                        SLA_una_emision  =  pd.DataFrame(list(nivel_atencion_x_serie(simulacion, niveles_servicio_x_serie).items()), columns=['keys', 'values'])
+                        SLA_una_emision  =  pd.DataFrame(list(nivel_atencion_x_serie(registros_sla, niveles_servicio_x_serie).items()), columns=['keys', 'values'])
 
                         
                         SLA_index+=1
@@ -1060,6 +1070,13 @@ def simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
                         SLA_una_emision['index']            = SLA_una_emision.shape[0]*[SLA_index]
                         SLA_una_emision['hora'] = reloj_simulacion.time().strftime('%H:%M:%S')
                         SLA_df                              = pd.concat([SLA_df, SLA_una_emision], ignore_index=True)#.reset_index(drop=True)
+                        ######################################################################################################################################
+                        Espera_una_emision        =  pd.DataFrame(list(tiempo_espera_x_serie(registros_sla, series).items()), columns=['keys', 'values'])
+                        Espera_index+=1
+                        Espera_una_emision['index']  = Espera_una_emision.shape[0]*[Espera_index]
+                        Espera_una_emision['hora']   = reloj_simulacion.time().strftime('%H:%M:%S')#un_cliente.FH_Emi[un_cliente.FH_Emi.index[0]].time().strftime('%H:%M:%S')#
+                        Espera_df                    = pd.concat([Espera_df, Espera_una_emision], ignore_index=True)
+                        
             try:
                 #Iterar a la siguiente emisión
                 #svisor.aplicar_agenda(hora_actual=  reloj_simulacion, agenda = agenda)    
@@ -1075,8 +1092,11 @@ def simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
     df_reset = registros_SLA.reset_index()
     duplicates =  df_reset['hora'].duplicated(keep=False)
     registros_SLA = df_reset[~duplicates].drop('index', axis=1,inplace=False).reset_index(drop=True, inplace=False)
+    
+    trajectorias_esperas = Espera_df.pivot(index=['index', 'hora'], columns=['keys'], values='values').rename_axis(None, axis=1)
 
-    return registros_SLA
+
+    return registros_SLA, trajectorias_esperas
 
 def timestamp_iterator(initial_timestamp: str):
     current_time = initial_timestamp

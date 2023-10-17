@@ -168,7 +168,6 @@ class ForecasterTTP:
 
         return demandas_proyectadas_cuantizada[ (inicio_dia <= demandas_proyectadas_cuantizada["FH_Emi"]) & (demandas_proyectadas_cuantizada["FH_Emi"] <= fin_dia) ]
 
-#%%
 # EJEMPLO DE USO
 dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 SERIES = [5, 10, 11, 12, 14, 17]#[10, 14, 12, 17, 5, 11]
@@ -179,7 +178,6 @@ demandas_proyectadas_q = forecaster_ttp.proyectar_demanda_SARIMAX('2023-05-15').
 demandas_proyectadas_q = ForecasterTTP.un_dia('2023-05-15', demandas_proyectadas_q) # Retorna solo un dia 2023-05-15
 
 
-#%%
 from pandas import Timestamp, Timedelta
 
 df = demandas_proyectadas_q #pd.DataFrame(data)
@@ -201,8 +199,8 @@ df['FH_AteIni'] = df['FH_Emi'] + Timedelta(minutes=2)
 
 # Show the DataFrame to confirm changes
 un_dia = df
-un_dia
-#%%
+
+
 
 def extract_skills_length(data):
     result = {}
@@ -247,8 +245,13 @@ skills   = {'escritorio_7': [10, 12],
  'escritorio_1': [10, 11, 12],
  'escritorio_3': [10, 11]}#obtener_skills(un_dia)
 series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-SLAs     = [(0.6, 30), (0.34, 35), (0.7, 45)]
-niveles_servicio_x_serie = {s:random.choice(SLAs) for s in series}
+#SLAs     = [(0.6, 30), (0.34, 35), (0.7, 45)]
+niveles_servicio_x_serie = {5: (0.7, 45),
+                            10: (0.34, 35),
+                            11: (0.6, 30),
+                            12: (0.34, 35),
+                            14: (0.7, 45),
+                            17: (0.7, 45)}#{s:random.choice(SLAs) for s in series}
 
 
 def objective(trial, un_dia,skills, subsets, niveles_servicio_x_serie,  modos_atenciones:list = ["Alternancia", "FIFO", "Rebalse"]):
@@ -279,14 +282,15 @@ def objective(trial, un_dia,skills, subsets, niveles_servicio_x_serie,  modos_at
                 planificacion[str(key)] = [inner_dict]
         #print(f"---------------------------{planificacion}")
         trial.set_user_attr('planificacion', planificacion)
-        registros_SLA = simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades)       
+        registros_SLA, Workforce_Esperas = simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades)       
         
         obj1 = gmean(registros_SLA.drop("hora", axis=1).iloc[-1].dropna())
         obj2 = sum(bool_vector)
         obj3 = extract_skills_length(planificacion)
-        print(f"SLA global: {obj1}, n Escritorios: {obj2}, n Series cargadas: {obj3}")
+        obj4 = np.mean(Workforce_Esperas.iloc[-1].dropna())
+        print(f"SLA global: {obj1}, T espera global {obj4}, n Escritorios: {obj2}, n Series cargadas: {obj3}")
         
-        return obj1, obj2, obj3 #gmean(registros_SLA.drop("hora", axis=1).iloc[-1].dropna()), sum(bool_vector), extract_skills_length(planificacion)
+        return obj1, obj2, obj3, obj4 #gmean(registros_SLA.drop("hora", axis=1).iloc[-1].dropna()), sum(bool_vector), extract_skills_length(planificacion)
 
     except Exception as e:
         print(f"An exception occurred: {e}")
@@ -296,7 +300,7 @@ rows = len(un_dia)
 chunk_size = rows // 4
 partitions = [un_dia.iloc[i:i + chunk_size] for i in range(0, rows, chunk_size)]
 # Create a SQLite storage to save all studies
-storage = optuna.storages.get_storage("sqlite:///multiple_studies.db")
+storage = optuna.storages.get_storage("sqlite:///workforce_manager.db")
 tramos = [f"{str(p.FH_Emi.min().time())} - {str(p.FH_Emi.max().time())}" for p in partitions]
 
 # Loop to optimize each partition
@@ -304,7 +308,7 @@ for idx, part in enumerate(partitions):
 
     # Create a multi-objective study object and specify the storage
     study_name = f"workforce_{idx}"  # Unique name for each partition
-    study = optuna.multi_objective.create_study(directions=['maximize', 'minimize', 'minimize'],
+    study = optuna.multi_objective.create_study(directions=['maximize', 'minimize', 'minimize', 'minimize'],
                                                 study_name=study_name,
                                                 storage=storage, load_if_exists=True)
     # Optimize the study, the objective function is passed in as the first argument
@@ -315,7 +319,7 @@ for idx, part in enumerate(partitions):
                                         subsets                  = subsets,
                                         niveles_servicio_x_serie = niveles_servicio_x_serie,
                                         ), 
-                                        n_trials                 = 50)
+                                        n_trials                 = 20)
 
 #%%
 import json
@@ -329,12 +333,14 @@ import optuna
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 # Connect to the SQLite database
-storage = optuna.storages.get_storage("sqlite:///multiple_studies.db")
+storage = optuna.storages.get_storage("sqlite:///workforce_manager.db")
 # Retrieve all study names
 all_study_names = optuna.study.get_all_study_summaries(storage)
 relevant_study_names = [s.study_name for s in all_study_names if "workforce_" in s.study_name]
 # Infer the number of partitions
 num_partitions = len(relevant_study_names)
+num_partitions, len(tramos)
+
 # Initialize the plot
 fig = make_subplots(rows=1, cols=num_partitions, shared_yaxes=True, subplot_titles=tramos)
 # Loop to load each partition study and extract all trials
