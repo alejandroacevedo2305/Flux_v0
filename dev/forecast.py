@@ -19,8 +19,6 @@ from datetime import date, time
 import math
 import random 
 
-
-
 class ForecasterTTP:
 
     def __init__(self, 
@@ -181,8 +179,6 @@ demandas_proyectadas_q = forecaster_ttp.proyectar_demanda_SARIMAX('2023-05-15').
 demandas_proyectadas_q = ForecasterTTP.un_dia('2023-05-15', demandas_proyectadas_q) # Retorna solo un dia 2023-05-15
 
 
-
-
 #%%
 from pandas import Timestamp, Timedelta
 
@@ -195,7 +191,7 @@ df['FH_Emi'] = pd.to_datetime(df['FH_Emi'])  # Ensure FH_Emi is in datetime64[ns
 
 # Task 2: Create a new column FH_AteFin
 # Convert T_Ate to Timedelta in minutes, then add to FH_Emi
-df['FH_AteFin'] = df['FH_Emi'] + pd.to_timedelta(df['T_Ate'], unit='m')
+df['FH_AteFin'] = df['FH_Emi'] + pd.to_timedelta(df['T_Ate'], unit='s')
 
 # Task 3: FH_AteFin is already in the same format as FH_Emi (datetime64[ns])
 
@@ -205,7 +201,7 @@ df['FH_AteIni'] = df['FH_Emi'] + Timedelta(minutes=2)
 
 # Show the DataFrame to confirm changes
 un_dia = df
-
+un_dia
 #%%
 
 def extract_skills_length(data):
@@ -319,9 +315,75 @@ for idx, part in enumerate(partitions):
                                         subsets                  = subsets,
                                         niveles_servicio_x_serie = niveles_servicio_x_serie,
                                         ), 
-                                        n_trials                 = 5)
+                                        n_trials                 = 50)
 
 #%%
+import json
+def format_dict_for_hovertext(dictionary):
+    formatted_str = ""
+    for key, value in dictionary.items():
+        formatted_str += f"'{key}': {json.dumps(value)},<br>"
+    return formatted_str[:-4]  # Remove the trailing HTML line break
+
+import optuna
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+# Connect to the SQLite database
+storage = optuna.storages.get_storage("sqlite:///multiple_studies.db")
+# Retrieve all study names
+all_study_names = optuna.study.get_all_study_summaries(storage)
+relevant_study_names = [s.study_name for s in all_study_names if "workforce_" in s.study_name]
+# Infer the number of partitions
+num_partitions = len(relevant_study_names)
+# Initialize the plot
+fig = make_subplots(rows=1, cols=num_partitions, shared_yaxes=True, subplot_titles=tramos)
+# Loop to load each partition study and extract all trials
+for idx, tramo in enumerate(tramos):  # Assuming `tramos` is defined elsewhere
+    study_name = f"workforce_{idx}"
+    # Load the study
+    study = optuna.multi_objective.load_study(study_name=study_name, storage=storage)
+    # Extract all trials
+    all_trials = study.get_trials(deepcopy=False)
+    # Initialize lists for the current partition
+    current_partition_values_0 = []
+    current_partition_values_1 = []
+    current_partition_values_2 = []
+    hover_texts = []
+    for trial in all_trials:
+        # Skip if the trial is not complete
+        if trial.state != optuna.trial.TrialState.COMPLETE:
+            continue
+        # Append the values to the lists for the current partition
+        current_partition_values_0.append(trial.values[0])
+        current_partition_values_1.append(trial.values[1])
+        current_partition_values_2.append(trial.values[2])
+        hover_texts.append(f"{format_dict_for_hovertext(trial.user_attrs.get('planificacion'))}")  # Creating hover text from trial parameters
+    # Plotting
+    fig.add_trace(
+        go.Scatter(
+            x=current_partition_values_1,
+            y=current_partition_values_0,
+            mode='markers',
+            marker=dict(opacity=0.5,
+                        size=current_partition_values_2,
+                        line=dict(
+                width=2,  # width of border line
+                color='black'  # color of border line
+            )),
+            hovertext=hover_texts,
+            name=f"{tramo}"
+        ),
+        row=1,
+        col=idx + 1  # Plotly subplots are 1-indexed
+    )
+    # Customizing axis
+    fig.update_xaxes(title_text="n Escritorios")#, tickvals=list(range(min(current_partition_values_1), max(current_partition_values_1)+1)), col=idx+1)
+    fig.update_yaxes(title_text="SLA global", row=1, col=idx+1)
+# Show plot
+fig.update_layout(title="Subplots with Hover Information")
+fig.show()
+
+
 #%% -------------------------------------------
 
 def regenerate_global_keys(lst_of_dicts):
@@ -358,7 +420,9 @@ for idx, tramo in enumerate(tramos):  # Assuming `tramos` is defined elsewhere
     # Extract all trials
     all_trials = study.get_trials(deepcopy=False)    
     estudios = estudios | {f"{study_name}":
-        { i: ( trial.values[0]/(trial.values[1]+trial.values[2]), trial.user_attrs.get('planificacion')) for i, trial in enumerate(all_trials) if trial.state == optuna.trial.TrialState.COMPLETE}
+        {
+            i: ( trial.values[0]/(trial.values[1]+trial.values[2]), trial.user_attrs.get('planificacion')) 
+            for i, trial in enumerate(all_trials) if trial.state == optuna.trial.TrialState.COMPLETE}
         }
 mejores_configs = []
 
@@ -368,26 +432,27 @@ for k,v in estudios.items():
    selected_tuple = max(tuple_list, key=lambda x: x[0])
    
    mejores_configs.append(selected_tuple[1])
-
+mejores_configs
 #%%
 
 dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
 
 
-planificacion = regenerate_global_keys(mejores_configs)#mejores_configs[0]
+workforce_recommendation = regenerate_global_keys(mejores_configs)#mejores_configs[0]
 prioridades   =  prioridad_x_serie(niveles_servicio_x_serie, 2, 1) 
-registros_SLA_real_con_worforce = simular(planificacion, niveles_servicio_x_serie, el_dia_real, prioridades)
+registros_SLA_real_con_worforce = simular(workforce_recommendation, niveles_servicio_x_serie, el_dia_real, prioridades)
 
 #%%
+# def calcula_SAL_hitorico:
 
 
-
-registros_sla               = pd.DataFrame()
+registros_sla            = pd.DataFrame()
 tabla_atenciones         = el_dia_real[['FH_Emi', 'IdSerie', 'T_Esp']]
 tabla_atenciones.columns = ['FH_Emi', 'IdSerie', 'espera']
 SLA_index                = 0
 SLA_df                   = pd.DataFrame()
+
 for cliente_seleccionado in tabla_atenciones.iterrows():
     
 
@@ -416,3 +481,5 @@ trajectoria_sla.iloc[0:700]
 #         f"{SERIE}_proyectada" : pd.Series(forecaster_ttp.demandas_proyectadas[f"{SERIE}_proyectada"]),
 #         f"{SERIE}_real"       : pd.Series(forecaster_ttp.demandas_proyectadas[f"{SERIE}_real"]),
 #     }).dropna().plot.line(title = f'Serie {SERIE}')
+
+# %%
