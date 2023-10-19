@@ -16,6 +16,7 @@ from datetime import date, time
 import math
 import random 
 from src.forecast_utils import *
+
 ##----------------------Datos históricos de un día----------------
 dataset     = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
@@ -23,12 +24,12 @@ skills      = obtener_skills(el_dia_real)
 series      = sorted(list({val for sublist in skills.values() for val in sublist}))
 #SLAs        = [(0.6, 30), (0.34, 35), (0.7, 45)]
 niveles_servicio_x_serie = {5: (0.7, 45),
-                            10: (0.34, 35),
-                            11: (0.6, 30),
-                            12: (0.34, 35),
-                            14: (0.7, 45),
-                            17: (0.7, 45)}#{s:random.choice(SLAs) for s in series}
-registros_sla            = pd.DataFrame()
+                                10: (0.34, 35),
+                                11: (0.6, 30),
+                                12: (0.34, 35),
+                                14: (0.7, 45),
+                                17: (0.7, 45)}#{s:random.choice(SLAs) for s in series}
+registros_atenciones            = pd.DataFrame()
 tabla_atenciones         = el_dia_real[['FH_Emi', 'IdSerie', 'T_Esp']]
 tabla_atenciones.columns = ['FH_Emi', 'IdSerie', 'espera']
 SLA_index                = 0
@@ -37,10 +38,10 @@ Espera_index =0
 Espera_df               = pd.DataFrame()             
 
 
-def tiempo_espera_x_serie_para_reporte(registros_sla, series):   
+def tiempo_espera_x_serie_para_reporte(registros_atenciones, series):   
     esperas_x_serie = {}
     for serie in series:
-        espera_una_serie    = registros_sla[registros_sla.IdSerie == serie]['espera']
+        espera_una_serie    = registros_atenciones[registros_atenciones.IdSerie == serie]['espera']
         if not espera_una_serie.empty:
             promedio_espera_cum = (espera_una_serie.expanding().mean()/60).iloc[-1]
             esperas_x_serie     = esperas_x_serie | {serie: int(promedio_espera_cum)}
@@ -50,29 +51,85 @@ for cliente_seleccionado in tabla_atenciones.iterrows():
     
 
     un_cliente       =  pd.DataFrame(cliente_seleccionado[1][['FH_Emi', 'IdSerie', 'espera']]).T
-    registros_sla    =  pd.concat([registros_sla, un_cliente])#.reset_index(drop=True)
-    SLA_una_emision  =  pd.DataFrame(list(nivel_atencion_x_serie(registros_sla, niveles_servicio_x_serie).items()), columns=['keys', 'values'])
+    registros_atenciones    =  pd.concat([registros_atenciones, un_cliente])#.reset_index(drop=True)
+    SLA_una_emision  =  pd.DataFrame(list(nivel_atencion_x_serie(registros_atenciones, niveles_servicio_x_serie).items()), columns=['keys', 'values'])
     SLA_index+=1                        
     SLA_una_emision['index']  = SLA_una_emision.shape[0]*[SLA_index]
     SLA_una_emision['hora']   = un_cliente.FH_Emi[un_cliente.FH_Emi.index[0]].time().strftime('%H:%M:%S')#
     #SLA_una_emision['espera']= un_cliente.espera[un_cliente.espera.index[0]]
     SLA_df                    = pd.concat([SLA_df, SLA_una_emision], ignore_index=True)
     ######################################################################################################################################
-    Espera_una_emision        =  pd.DataFrame(list(tiempo_espera_x_serie_para_reporte(registros_sla, series).items()), columns=['keys', 'values'])
+    Espera_una_emision        =  pd.DataFrame(list(tiempo_espera_x_serie_para_reporte(registros_atenciones, series).items()), columns=['keys', 'values'])
     Espera_index+=1
     Espera_una_emision['index']  = Espera_una_emision.shape[0]*[Espera_index]
     Espera_una_emision['hora']   = un_cliente.FH_Emi[un_cliente.FH_Emi.index[0]].time().strftime('%H:%M:%S')#
     Espera_df                    = pd.concat([Espera_df, Espera_una_emision], ignore_index=True)
 
+def sla_x_serie(df, interval='1H', corte=45, factor_conversion_T_esp:int=60):
+    df = df.reset_index(drop=False)
+    df['FH_Emi'] = pd.to_datetime(df['FH_Emi'])  # Convert to datetime
+    df['IdSerie'] = df['IdSerie'].astype(str)  # Ensuring IdSerie is string
+    df['espera'] = df['espera'].astype(float)  # Convert to float
+    df['espera'] = df['espera']/factor_conversion_T_esp  
+    # Set FH_Emi as the index for resampling
+    df.set_index('FH_Emi', inplace=True)
+    # First DataFrame: Count of events in each interval
+    df_count = df.resample(interval).size().reset_index(name='Count')
+    # Second DataFrame: Percentage of "espera" values below the threshold
+    def percentage_below_threshold(x):
+        return (x < corte).mean() * 100
+    df_percentage = df.resample(interval)['espera'].apply(percentage_below_threshold).reset_index(name='espera')
+    
+    return df_count, df_percentage
 
+def plot_count_and_avg(df_count, df_avg, ax1):
+    x_labels = [f"{start_time} - {end_time}" for start_time, end_time in zip(df_count['FH_Emi'].dt.strftime('%H:%M:%S'), (df_count['FH_Emi'] + pd.Timedelta(hours=1)).dt.strftime('%H:%M:%S'))]
+    bars = ax1.bar(x_labels, df_count['Count'], alpha=0.6, label='Count')
+    ax2 = ax1.twinx()
+    ax2.plot(x_labels, df_avg['espera'], color='r', marker='o', label='Average')
+    ax1.set_xlabel('Time Interval')
+    ax1.set_ylabel('Count', color='b')
+    ax2.set_ylabel('Average', color='r')
+    ax1.set_xticks([rect.get_x() + rect.get_width() / 2 for rect in bars])
+    ax1.set_xticklabels(x_labels, rotation=45, ha="right", rotation_mode="anchor")
+    ax1.legend(loc='upper left')
+    ax2.legend(loc='upper right')
+    
+def plot_all_reports(df_pairs):
+    fig, axs = plt.subplots(3, 2, figsize=(10, 10))  # 2x3 grid of subplots
+    axs = axs.ravel()  # Flatten the grid to easily loop through it
+    for i, (df_count, df_avg) in enumerate(df_pairs):
+        plot_count_and_avg(df_count, df_avg, axs[i])
+    plt.tight_layout()  # Adjust the spacing between subplots
+    plt.show()
+    
+    
+#%%
+registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
+registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
+
+
+df_count, df_percentage         = sla_x_serie(registros_x_serie[2], '1H', corte = 30)
+
+# List of data frame pairs
+df_pairs = [(sla_x_serie(r_x_s, '1H', corte = 30)) for r_x_s in registros_x_serie]
+
+# [(df_count, df_percentage),(df_count, df_percentage), 
+#             (df_count, df_percentage),(df_count, df_percentage), 
+#             (df_count, df_percentage),(df_count, df_percentage)]
+plot_all_reports(df_pairs)
+#df_count, df_avg = process_dataframe(registros_atenciones)
+# registros_atenciones['espera'] = registros_atenciones['espera'] /60
+# # Plotting the df_count DataFrame
+# registros_atenciones
+#%%
 trajectorias_SLAs    = SLA_df.pivot(index=['index', 'hora'], columns=['keys'], values='values').rename_axis(None, axis=1)
 trajectorias_esperas = Espera_df.pivot(index=['index', 'hora'], columns=['keys'], values='values').rename_axis(None, axis=1)
 trajectorias_SLAs.droplevel(0).plot(rot=45, ylabel='Nivel de servicio (%)')
 trajectorias_esperas.droplevel(0).plot(rot=45, ylabel='Tiempo espera (min.)')
 
-# %%
 #-----------------Forecast (MM)--------------------------------
-# %%
+
 #-----------------------Workforce----------------------------
 import optuna
 import plotly.graph_objects as go
@@ -202,7 +259,16 @@ for k,v in estudios.items():
 
 workforce_recommendation = regenerate_global_keys(mejores_configs)#mejores_configs[0]
 prioridades              =  prioridad_x_serie(niveles_servicio_x_serie, 2, 1) 
-Workforce_SLAs,   Workforce_Esperas = simular(workforce_recommendation, niveles_servicio_x_serie, el_dia_real, prioridades)
+Workforce_SLAs, Workforce_Esperas, Workforce_df_count, Workforce_df_avg, WorkForce = simular(workforce_recommendation, niveles_servicio_x_serie, el_dia_real, prioridades)
+
+
+# %%
+plot_count_and_avg(df_count, df_avg)
+
+plot_count_and_avg(df_count, Workforce_df_avg)
+
+
+#%%
 Workforce_SLAs.set_index('hora', inplace=False).plot(rot=45, ylabel='Nivel de servicio (%)')
 Workforce_Esperas.droplevel(0).plot(rot=45, ylabel='Tiempo espera (min.)')
 print(f"n Escritorios utilizados histórico: {skills.__len__()}")

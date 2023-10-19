@@ -1,6 +1,50 @@
 from dataclasses import dataclass
 from datetime import date, time, datetime
 import pandas as pd
+import matplotlib.pyplot as plt
+
+def process_dataframe(df, freq='1H', factor_conversion_T_esp:int=60):
+    df['FH_Emi'] = pd.to_datetime(df['FH_Emi'])    
+    # Convert 'espera' column to float dtype
+    df['espera'] = df['espera'].astype(float)    
+    # Set FH_Emi as the index for easier resampling
+    df.set_index('FH_Emi', inplace=True)    
+    # Create the first output dataframe: Count of number of events per custom interval
+    df_count = df.resample(freq).size().reset_index(name='Count')    
+    # Create the second output dataframe: Average of 'espera' values per custom interval
+    df_avg = df.resample(freq).agg({'espera': 'mean'}).reset_index()
+    df_avg['espera'] = df_avg['espera']/factor_conversion_T_esp  
+    return df_count, df_avg
+
+
+# def plot_count_and_avg(df_count, df_avg):
+
+#     x_labels = [f"{start_time} - {end_time}" for start_time, end_time in zip(df_count['FH_Emi'].dt.strftime('%H:%M:%S'), (df_count['FH_Emi'] + pd.Timedelta(hours=1)).dt.strftime('%H:%M:%S'))]
+    
+#     # Create the bar plot
+#     fig, ax1 = plt.subplots(figsize=(10, 6))
+#     bars = ax1.bar(x_labels, df_count['Count'], alpha=0.6, label='Count')    
+#     # Create the line plot for average values
+#     ax2 = ax1.twinx()
+#     ax2.plot(x_labels, df_avg['espera'], color='r', marker='o', label='Average')    
+#     # Add labels and title
+#     ax1.set_xlabel('Time Interval')
+#     ax1.set_ylabel('Count', color='b')
+#     ax2.set_ylabel('Average', color='r')
+#     plt.title('Count of Events and Average of Espera per Time Interval')    
+#     # Set x-ticks to be centered and rotated
+#     ax1.set_xticks([rect.get_x() + rect.get_width() / 2 for rect in bars])
+#     ax1.set_xticklabels(x_labels, rotation=45, ha="right", rotation_mode="anchor")
+    
+#     # Add legends
+#     ax1.legend(loc='upper left')
+#     ax2.legend(loc='upper right')
+    
+#     # Show the plot
+#     plt.show()
+
+
+
 @dataclass
 class DatasetTTP:
     atenciones : pd.DataFrame
