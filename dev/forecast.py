@@ -253,7 +253,7 @@ niveles_servicio_x_serie = {5: (0.7, 45),
                             14: (0.7, 45),
                             17: (0.7, 45)}#{s:random.choice(SLAs) for s in series}
 
-
+#%%
 def objective(trial, un_dia,skills, subsets, niveles_servicio_x_serie,  modos_atenciones:list = ["Alternancia", "FIFO", "Rebalse"]):
     try:
         bool_vector  = [trial.suggest_categorical(f'escritorio_{i}', [True, False]) for i in range(len(skills.keys()))]
@@ -282,15 +282,51 @@ def objective(trial, un_dia,skills, subsets, niveles_servicio_x_serie,  modos_at
                 planificacion[str(key)] = [inner_dict]
         #print(f"---------------------------{planificacion}")
         trial.set_user_attr('planificacion', planificacion)
-        registros_SLA, Workforce_Esperas = simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades)       
+        # registros_SLA, Workforce_Esperas,_,_,_ = simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades)       
         
-        obj1 = gmean(registros_SLA.drop("hora", axis=1).iloc[-1].dropna())
-        obj2 = sum(bool_vector)
-        obj3 = extract_skills_length(planificacion)
-        obj4 = np.mean(Workforce_Esperas.iloc[-1].dropna())
-        print(f"SLA global: {obj1}, T espera global {obj4}, n Escritorios: {obj2}, n Series cargadas: {obj3}")
+        # obj1 = gmean(registros_SLA.drop("hora", axis=1).iloc[-1].dropna())
+        # obj2 = sum(bool_vector)
+        # obj3 = extract_skills_length(planificacion)
+        # obj4 = np.mean(Workforce_Esperas.iloc[-1].dropna())
+        # print(f"SLA global: {obj1}, T espera global {obj4}, n Escritorios: {obj2}, n Series cargadas: {obj3}")
         
-        return obj1, obj2, obj3, obj4 #gmean(registros_SLA.drop("hora", axis=1).iloc[-1].dropna()), sum(bool_vector), extract_skills_length(planificacion)
+        # return obj1, obj2, obj3, obj4 #gmean(registros_SLA.drop("hora", axis=1).iloc[-1].dropna()), sum(bool_vector), extract_skills_length(planificacion)
+        registros_atenciones = optuna_simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades)
+        registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
+        series   = sorted(list({val for sublist in skills.values() for val in sublist}))
+        registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
+        
+        from scipy import stats
+        def sla_x_serie(df, interval='1H', corte=45, factor_conversion_T_esp:int=60):
+            df = df.reset_index(drop=False)
+            df['FH_Emi'] = pd.to_datetime(df['FH_Emi'])  # Convert to datetime
+            df['IdSerie'] = df['IdSerie'].astype(str)  # Ensuring IdSerie is string
+            df['espera'] = df['espera'].astype(float)  # Convert to float
+            df['espera'] = df['espera']/factor_conversion_T_esp  
+            # Set FH_Emi as the index for resampling
+            df.set_index('FH_Emi', inplace=True)
+            # First DataFrame: Count of events in each interval
+            df_count = df.resample(interval).size().reset_index(name='Count')
+            # Second DataFrame: Percentage of "espera" values below the threshold
+            def percentage_below_threshold(x):
+                return (x < corte).mean() * 100
+            df_percentage = df.resample(interval)['espera'].apply(percentage_below_threshold).reset_index(name='espera')
+            
+            return df_count, df_percentage
+
+        def calculate_geometric_mean(series):
+            series = series.dropna()
+            if series.empty:
+                return np.nan
+            return stats.gmean(series)        
+        
+        all_SLAs = [sla_x_serie(r_x_s, '1H', corte = corte, factor_conversion_T_esp=1)[1]['espera'] for r_x_s, s, corte in zip(registros_x_serie, series,
+                                                                          [20, 20, 20, 20, 20, 20])]
+        obj1, obj2, obj3, obj4, obj5, obj6 =  tuple(calculate_geometric_mean(series) for series in all_SLAs)
+        
+        
+        print(f"maximizando SLAs: {obj1, obj2, obj3, obj4, obj5, obj6}")
+        return  obj1, obj2, obj3, obj4, obj5, obj6
 
     except Exception as e:
         print(f"An exception occurred: {e}")
@@ -300,7 +336,7 @@ rows = len(un_dia)
 chunk_size = rows // 4
 partitions = [un_dia.iloc[i:i + chunk_size] for i in range(0, rows, chunk_size)]
 # Create a SQLite storage to save all studies
-storage = optuna.storages.get_storage("sqlite:///workforce_manager.db")
+storage = optuna.storages.get_storage("sqlite:///workforce_manager_SLA_objs.db")
 tramos = [f"{str(p.FH_Emi.min().time())} - {str(p.FH_Emi.max().time())}" for p in partitions]
 
 # Loop to optimize each partition
@@ -308,7 +344,7 @@ for idx, part in enumerate(partitions):
 
     # Create a multi-objective study object and specify the storage
     study_name = f"workforce_{idx}"  # Unique name for each partition
-    study = optuna.multi_objective.create_study(directions=['maximize', 'minimize', 'minimize', 'minimize'],
+    study = optuna.multi_objective.create_study(directions=['maximize', 'maximize', 'maximize', 'maximize','maximize','maximize'],
                                                 study_name=study_name,
                                                 storage=storage, load_if_exists=True)
     # Optimize the study, the objective function is passed in as the first argument
@@ -319,7 +355,7 @@ for idx, part in enumerate(partitions):
                                         subsets                  = subsets,
                                         niveles_servicio_x_serie = niveles_servicio_x_serie,
                                         ), 
-                                        n_trials                 = 20)
+                                        n_trials                 = 50)
 
 #%%
 import json

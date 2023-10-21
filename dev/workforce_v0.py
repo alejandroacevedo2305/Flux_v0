@@ -23,12 +23,12 @@ el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=Fals
 skills      = obtener_skills(el_dia_real)
 series      = sorted(list({val for sublist in skills.values() for val in sublist}))
 #SLAs        = [(0.6, 30), (0.34, 35), (0.7, 45)]
-niveles_servicio_x_serie = {5: (0.7, 45),
-                                10: (0.34, 35),
-                                11: (0.6, 30),
-                                12: (0.34, 35),
-                                14: (0.7, 45),
-                                17: (0.7, 45)}#{s:random.choice(SLAs) for s in series}
+niveles_servicio_x_serie = {5: (0.7, 20),
+                                10: (0.34, 20),
+                                11: (0.6, 20),
+                                12: (0.34, 20),
+                                14: (0.7, 20),
+                                17: (0.7, 20)}#{s:random.choice(SLAs) for s in series}
 registros_atenciones            = pd.DataFrame()
 tabla_atenciones         = el_dia_real[['FH_Emi', 'IdSerie', 'T_Esp']]
 tabla_atenciones.columns = ['FH_Emi', 'IdSerie', 'espera']
@@ -82,52 +82,74 @@ def sla_x_serie(df, interval='1H', corte=45, factor_conversion_T_esp:int=60):
     
     return df_count, df_percentage
 
-def plot_count_and_avg(df_count, df_avg, ax1):
+def plot_count_and_avg(df_count, df_avg, ax1, color_sla:str='navy', serie:str="_", tipo_SLA:str="SLA"):
     x_labels = [f"{start_time} - {end_time}" for start_time, end_time in zip(df_count['FH_Emi'].dt.strftime('%H:%M:%S'), (df_count['FH_Emi'] + pd.Timedelta(hours=1)).dt.strftime('%H:%M:%S'))]
-    bars = ax1.bar(x_labels, df_count['Count'], alpha=0.6, label='Count')
+    bars = ax1.bar(x_labels, df_count['Count'], alpha=0.6, label='Demanda')
     ax2 = ax1.twinx()
-    ax2.plot(x_labels, df_avg['espera'], color='r', marker='o', label='Average')
-    ax1.set_xlabel('Time Interval')
-    ax1.set_ylabel('Count', color='b')
-    ax2.set_ylabel('Average', color='r')
+    ax2.plot(x_labels, df_avg['espera'], color=color_sla, marker='o', label=f'{tipo_SLA}')
+    ax1.set_xlabel('')
+    ax1.set_ylabel('Demanda (#)', color='black')
+    ax2.set_ylabel(f'{tipo_SLA} (%)', color='black')    
+    ax2.set_ylim([0, 105])
     ax1.set_xticks([rect.get_x() + rect.get_width() / 2 for rect in bars])
-    ax1.set_xticklabels(x_labels, rotation=45, ha="right", rotation_mode="anchor")
-    ax1.legend(loc='upper left')
-    ax2.legend(loc='upper right')
+    ax1.set_xticklabels(x_labels, rotation=40, ha="right", rotation_mode="anchor", size =7)
+    ax1.legend(loc='upper center', bbox_to_anchor=(0.35, 1.22))
+    ax2.legend(loc='upper center', bbox_to_anchor=(0.7, 1.22))
+    ax1.set_title(f"Serie {serie}", y=1.15) 
+
+    # New code to add a grey grid and light grey background color
+    ax1.grid(color='black', linestyle='-', linewidth=0.25, alpha=0.35)  # Adding grey grid to ax1
+    ax2.grid(color='black', linestyle='-', linewidth=0.25, alpha=0.35)  # Adding grey grid to ax2
+    ax1.set_facecolor((0.75, 0.75, 0.75, 0.85))  # Adding light grey background color to ax1
+    ax2.set_facecolor((0.75, 0.75, 0.75, 0.85))  # Adding light grey background color to ax2
+
     
-def plot_all_reports(df_pairs):
-    fig, axs = plt.subplots(3, 2, figsize=(10, 10))  # 2x3 grid of subplots
+def plot_all_reports(df_pairs, tipo_SLA, color_sla, n_rows:int=3, n_cols:int=2, heigth:float=10, width:float=10):
+    fig, axs = plt.subplots(n_rows, n_cols, figsize=(width, heigth))  # 2x3 grid of subplots
     axs = axs.ravel()  # Flatten the grid to easily loop through it
-    for i, (df_count, df_avg) in enumerate(df_pairs):
-        plot_count_and_avg(df_count, df_avg, axs[i])
-    plt.tight_layout()  # Adjust the spacing between subplots
+    for i, ((df_count, df_avg), serie) in enumerate(df_pairs):
+        plot_count_and_avg(df_count, df_avg, axs[i], serie = serie, tipo_SLA= tipo_SLA, color_sla=color_sla)
+    fig.subplots_adjust(hspace=1, wspace=.45)  # Adjusts the vertical space between subplots. Default is 0.2.
+    #plt.tight_layout()  # Adjust the spacing between subplots
     plt.show()
-    
-    
-#%%
+   
+
 registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
 registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
 
 
-df_count, df_percentage         = sla_x_serie(registros_x_serie[2], '1H', corte = 30)
 
-# List of data frame pairs
-df_pairs = [(sla_x_serie(r_x_s, '1H', corte = 30)) for r_x_s in registros_x_serie]
+df_pairs = [(sla_x_serie(r_x_s, '1H', corte = corte), s) for r_x_s, s, corte in zip(registros_x_serie, series,
+                                                                          [20, 20, 20, 20, 20, 20])]
 
-# [(df_count, df_percentage),(df_count, df_percentage), 
-#             (df_count, df_percentage),(df_count, df_percentage), 
-#             (df_count, df_percentage),(df_count, df_percentage)]
-plot_all_reports(df_pairs)
-#df_count, df_avg = process_dataframe(registros_atenciones)
-# registros_atenciones['espera'] = registros_atenciones['espera'] /60
-# # Plotting the df_count DataFrame
-# registros_atenciones
+from scipy import stats
+
+def calculate_geometric_mean(series):
+    series = series.dropna()
+    if series.empty:
+        return np.nan
+    return stats.gmean(series)
+
+
+all_SLAs = [sla_x_serie(r_x_s, '1H', corte = corte)[1]['espera'] for r_x_s, s, corte in zip(registros_x_serie, series,
+                                                                          [20, 20, 20, 20, 20, 20])]
+
+tuple(calculate_geometric_mean(series) for series in all_SLAs)
+#%%
+#plot_all_reports(df_pairs[0:3], tipo_SLA = "SLA", color_sla="darkgoldenrod",n_rows=1,n_cols=3)
+
+
+plot_all_reports([df_pairs[idx] for idx in [0,2]], tipo_SLA = "SLA histórico", color_sla="darkgoldenrod",n_rows=1,n_cols=2, heigth=3, width=10)
+
+#plot_all_reports(df_pairs, tipo_SLA = "SLA", color_sla="darkgoldenrod")
+
+
 #%%
 trajectorias_SLAs    = SLA_df.pivot(index=['index', 'hora'], columns=['keys'], values='values').rename_axis(None, axis=1)
 trajectorias_esperas = Espera_df.pivot(index=['index', 'hora'], columns=['keys'], values='values').rename_axis(None, axis=1)
 trajectorias_SLAs.droplevel(0).plot(rot=45, ylabel='Nivel de servicio (%)')
 trajectorias_esperas.droplevel(0).plot(rot=45, ylabel='Tiempo espera (min.)')
-
+#%%
 #-----------------Forecast (MM)--------------------------------
 
 #-----------------------Workforce----------------------------
@@ -146,7 +168,7 @@ import optuna
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 # Connect to the SQLite database
-storage = optuna.storages.get_storage("sqlite:///workforce_manager.db")
+storage = optuna.storages.get_storage("sqlite:///workforce_manager_SLA_objs.db")
 # Retrieve all study names
 all_study_names = optuna.study.get_all_study_summaries(storage)
 relevant_study_names = [s.study_name for s in all_study_names if "workforce_" in s.study_name]
@@ -162,54 +184,57 @@ tramos = [f"{str(p.FH_Emi.min().time())} - {str(p.FH_Emi.max().time())}" for p i
 
 assert num_partitions == len(tramos)
 
-# Initialize the plot
-fig = make_subplots(rows=1, cols=num_partitions, shared_yaxes=True, subplot_titles=tramos)
-# Loop to load each partition study and extract all trials
-for idx, tramo in enumerate(tramos):  # Assuming `tramos` is defined elsewhere
-    study_name = f"workforce_{idx}"
-    # Load the study
-    study = optuna.multi_objective.load_study(study_name=study_name, storage=storage)
-    # Extract all trials
-    all_trials = study.get_trials(deepcopy=False)
-    # Initialize lists for the current partition
-    current_partition_values_0 = []
-    current_partition_values_1 = []
-    current_partition_values_2 = []
-    hover_texts = []
-    for trial in all_trials:
-        # Skip if the trial is not complete
-        if trial.state != optuna.trial.TrialState.COMPLETE:
-            continue
-        # Append the values to the lists for the current partition
-        current_partition_values_0.append(trial.values[0])
-        current_partition_values_1.append(trial.values[1])
-        current_partition_values_2.append(trial.values[2])
-        hover_texts.append(f"{format_dict_for_hovertext(trial.user_attrs.get('planificacion'))}")  # Creating hover text from trial parameters
-    # Plotting
-    fig.add_trace(
-        go.Scatter(
-            x=current_partition_values_1,
-            y=current_partition_values_0,
-            mode='markers',
-            marker=dict(opacity=0.5,
-                        size=current_partition_values_2,
-                        line=dict(
-                width=2,  # width of border line
-                color='black'  # color of border line
-            )),
-            hovertext=hover_texts,
-            name=f"{tramo}"
-        ),
-        row=1,
-        col=idx + 1  # Plotly subplots are 1-indexed
-    )
-    # Customizing axis
-    fig.update_xaxes(title_text="n Escritorios")#, tickvals=list(range(min(current_partition_values_1), max(current_partition_values_1)+1)), col=idx+1)
-    fig.update_yaxes(title_text="SLA global", row=1, col=idx+1)
-# Show plot
-fig.update_layout(title="Subplots with Hover Information")
-fig.show()
 
+
+#%%
+# Initialize the plot
+# fig = make_subplots(rows=1, cols=num_partitions, shared_yaxes=True, subplot_titles=tramos)
+# # Loop to load each partition study and extract all trials
+# for idx, tramo in enumerate(tramos):  # Assuming `tramos` is defined elsewhere
+#     study_name = f"workforce_{idx}"
+#     # Load the study
+#     study = optuna.multi_objective.load_study(study_name=study_name, storage=storage)
+#     # Extract all trials
+#     all_trials = study.get_trials(deepcopy=False)
+#     # Initialize lists for the current partition
+#     current_partition_values_0 = []
+#     current_partition_values_1 = []
+#     current_partition_values_2 = []
+#     hover_texts = []
+#     for trial in all_trials:
+#         # Skip if the trial is not complete
+#         if trial.state != optuna.trial.TrialState.COMPLETE:
+#             continue
+#         # Append the values to the lists for the current partition
+#         current_partition_values_0.append(trial.values[0])
+#         current_partition_values_1.append(trial.values[1])
+#         current_partition_values_2.append(trial.values[2])
+#         hover_texts.append(f"{format_dict_for_hovertext(trial.user_attrs.get('planificacion'))}")  # Creating hover text from trial parameters
+#     # Plotting
+#     fig.add_trace(
+#         go.Scatter(
+#             x=current_partition_values_1,
+#             y=current_partition_values_0,
+#             mode='markers',
+#             marker=dict(opacity=0.5,
+#                         size=current_partition_values_2,
+#                         line=dict(
+#                 width=2,  # width of border line
+#                 color='black'  # color of border line
+#             )),
+#             hovertext=hover_texts,
+#             name=f"{tramo}"
+#         ),
+#         row=1,
+#         col=idx + 1  # Plotly subplots are 1-indexed
+#     )
+#     # Customizing axis
+#     fig.update_xaxes(title_text="n Escritorios")#, tickvals=list(range(min(current_partition_values_1), max(current_partition_values_1)+1)), col=idx+1)
+#     fig.update_yaxes(title_text="SLA global", row=1, col=idx+1)
+# # Show plot
+# fig.update_layout(title="Subplots with Hover Information")
+# fig.show()
+from scipy.stats import gmean
 def regenerate_global_keys(lst_of_dicts):
 
     new_list = []
@@ -245,7 +270,8 @@ for idx, tramo in enumerate(tramos):  # Assuming `tramos` is defined elsewhere
     all_trials = study.get_trials(deepcopy=False)    
     estudios = estudios | {f"{study_name}":
         {
-            i: ( -1*(trial.values[3]), trial.user_attrs.get('planificacion')) 
+            i: ( 1*( np.mean([v for v in trial.values])), trial.user_attrs.get('planificacion')) 
+            #i: ( trial.values[1], trial.user_attrs.get('planificacion'))
             for i, trial in enumerate(all_trials) if trial.state == optuna.trial.TrialState.COMPLETE}
         }
 mejores_configs = []
@@ -262,11 +288,22 @@ prioridades              =  prioridad_x_serie(niveles_servicio_x_serie, 2, 1)
 Workforce_SLAs, Workforce_Esperas, Workforce_df_count, Workforce_df_avg, WorkForce = simular(workforce_recommendation, niveles_servicio_x_serie, el_dia_real, prioridades)
 
 
-# %%
-plot_count_and_avg(df_count, df_avg)
 
-plot_count_and_avg(df_count, Workforce_df_avg)
+# plot_count_and_avg(df_count, df_avg)
 
+# plot_count_and_avg(df_count, Workforce_df_avg)
+
+
+
+
+WorkForce['IdSerie'] = WorkForce['IdSerie'].astype(int) 
+registros_x_serie               = [WorkForce[WorkForce.IdSerie==s] for s in series]
+
+df_pairs_wkf = [(sla_x_serie(r_x_s, '1H', corte = corte, factor_conversion_T_esp=1), s) for r_x_s, s, corte in zip(registros_x_serie, series,
+                                                                          [20, 20, 20, 20, 20, 20])]
+#plot_all_reports(df_pairs, tipo_SLA = "SLA IA", color_sla="darkred")
+#%%
+plot_all_reports([df_pairs_wkf[idx] for idx in [0,2]], tipo_SLA = "SLA IA", color_sla="darkred",n_rows=1,n_cols=2, heigth=3, width=10)
 
 #%%
 Workforce_SLAs.set_index('hora', inplace=False).plot(rot=45, ylabel='Nivel de servicio (%)')

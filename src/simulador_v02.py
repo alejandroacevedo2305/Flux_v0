@@ -1099,6 +1099,165 @@ def simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
 
     return registros_SLA, trajectorias_esperas, df_count, df_avg, registros_atenciones
 
+def optuna_simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
+    agenda                   = copy.deepcopy(agenda_INPUT) 
+    skills                   = extract_first_skills(agenda) #obtener_skills(un_dia)
+    configuraciones          = {k:np.random.choice(["Alternancia", "FIFO", "Rebalse"], p=[.5,.25,.25]) for k in skills}
+    #SLAs                     = [(0.8, 25),(0.9, 30),(.5, 15), (.9, 5),(.5, 25)]
+    series = set()
+    for sk in skills.values():
+        series.update(sk)
+        
+    #niveles_servicio_x_serie = {s: random.choice(SLAs) for s in series}
+    
+    svisor                 = MisEscritorios(skills= skills, configuraciones = configuraciones, niveles_servicio_x_serie = niveles_servicio_x_serie)
+    #svisor.actualizar_conexiones(generar_conexiones(svisor))
+    tiempo_inicial         = list(generador_emisiones(un_dia))[0].FH_Emi#[0]['FH_Emi']
+    generador_emisiones_in = generador_emisiones(un_dia)
+    contador_tiempo        = timestamp_iterator(tiempo_inicial)
+    reloj_simulacion       = next(contador_tiempo)
+    #avanzar_un_minuto      = False
+    fila                   = pd.DataFrame()
+    registros_atenciones             = pd.DataFrame()
+    SLA_df                 = pd.DataFrame()
+    SLA_index              = 0
+    Espera_index            =0 
+    Espera_df               = pd.DataFrame() 
+    una_emision            = next(generador_emisiones_in)
+    emi                    = una_emision['FH_Emi']
+
+
+    #import copy
+    num_emisiones = 2000
+    for numero_emision in range(num_emisiones):
+        svisor.aplicar_agenda(hora_actual=  reloj_simulacion, agenda = agenda)
+        #svisor.lanzar_escritorios_programados(reloj_simulacion)
+        svisor.actualizar_registos_x_escris(reloj_simulacion)
+        #print(f"registro hora_actual: {svisor.hora_actual}")
+        #si la emision no está en el mismo minuto solo avanzamos los contadores y el reloj:
+        if not mismo_minuto(emi, reloj_simulacion):
+
+            #print(f"diferencia entre el simulador ({reloj_simulacion}) y la emisión ({emi}) mayor a un minuto: {abs(emi - reloj_simulacion).total_seconds()} s.")
+            #avanzar reloj
+            reloj_simulacion  = next(contador_tiempo)
+            #flag seteada avanzar
+            #print(f"avanza el reloj un minuto, nuevo tiempo: {reloj_simulacion}, avanza tiempo de espera y tiempo en escritorios bloqueados (atencion y pausa)")
+            #print("tiempos de espera incrementados en un minuto")
+            fila['espera'] += 1
+            if (svisor.filtrar_x_estado('atención') or  svisor.filtrar_x_estado('pausa')):
+                en_atencion            = svisor.filtrar_x_estado('atención') or []
+                en_pausa               = svisor.filtrar_x_estado('pausa') or []
+                escritorios_bloqueados = set(en_atencion + en_pausa)            
+                #print(f"escritorios ocupados (bloqueados) por servicio: {escritorios_bloqueados}")
+                #Avanzar un minuto en todos los tiempos de atención en todos los escritorios bloquedos  
+                escritorios_bloqueados_conectados    = [k for k,v in svisor.escritorios_ON.items() if k in escritorios_bloqueados]
+                       
+                svisor.iterar_escritorios_bloqueados(escritorios_bloqueados_conectados)
+
+            if disponibles:= svisor.filtrar_x_estado('disponible'):
+                conectados_disponibles       = [k for k,v in svisor.escritorios_ON.items() if k in disponibles]
+                svisor.iterar_escritorios_disponibles(conectados_disponibles)
+
+
+        #si estamos en el mismo minuto pasar a la siguiente emisión y no correr el reloj
+        else:
+            #print(
+            #f"emisioń dentro del mismo minuto (diferencia {abs(emi-reloj_simulacion).total_seconds()} seg.), actualizamos fila, gestionamos escritorios y pasamos a la siguiente emisión")    
+            #poner la emisión en una fila de df
+            emision_cliente = pd.DataFrame(una_emision).T
+            #insertar una nueva columna de tiempo de espera y asignar con cero.
+            emision_cliente['espera'] = 0
+            #concatenar la emisión a la fila de espera
+            fila = pd.concat([fila, emision_cliente]).reset_index(drop=True)
+            #fila_para_SLA = copy.deepcopy(fila[['FH_Emi', 'IdSerie', 'espera']])
+            #print(f"fila actualizada: \n{fila[['FH_Emi','IdSerie','espera']]}")
+
+            if not fila.empty:
+                if disponibles:= svisor.filtrar_x_estado('disponible'):
+                    #extraer las skills de los escritorios conectados que están disponibles
+                    #conectados_disponibles       = [k for k,v in svisor.escritorios_ON.items() if k in disponibles]
+
+                    conectados_disponibles       = balancear_carga_escritorios(
+                                                                                {k: {'numero_de_atenciones':v['numero_de_atenciones'],
+                                                                                    'tiempo_actual_disponible': v['tiempo_actual_disponible']} 
+                                                                                for k,v in svisor.escritorios_ON.items() if k in disponibles}
+                                                                                )    
+
+                    skills_disponibles           = {k:v['skills'] for k,v in svisor.escritorios_ON.items() if k in disponibles}
+                    configuraciones_disponibles  = {k:v['configuracion_atencion'] for k,v in svisor.escritorios_ON.items() if k in disponibles}
+                    #print(f"escritorio conectados que están disponibles: {conectados_disponibles}")
+                    #print(f"skills_disponibles:{skills_disponibles}")
+                    #print(f"configuraciones_disponibles: {configuraciones_disponibles}")
+                    for un_escritorio in conectados_disponibles:
+
+                        configuracion_atencion = svisor.escritorios_ON[un_escritorio]['configuracion_atencion']
+                        #print(f"buscando cliente para {un_escritorio} con {configuracion_atencion}")
+                        fila_filtrada          = fila[fila['IdSerie'].isin(svisor.escritorios_ON[un_escritorio].get('skills', []))]#filtrar_fila_por_skills(fila, svisor.escritorios_ON[un_escritorio])
+                        #print(f"en base a las skills: {svisor.escritorios_ON[un_escritorio].get('skills', [])}, fila_filtrada \n{fila_filtrada}")
+                        if  fila_filtrada.empty:
+                                #print("No hay match entre idSeries en fila y skills del escritorio, saltar al siguiente escritorio")
+                                continue #
+                        elif configuracion_atencion == "Alternancia":
+                            #print("----Alternancia------")
+                            #print(
+                            #    f"prioridades: {prioridades} skills: {svisor.escritorios_ON[un_escritorio]['skills']} \n{svisor.escritorios_ON[un_escritorio]['pasos_alternancia'].pasos}"                       
+                            #)                        
+                            cliente_seleccionado = svisor.escritorios_ON[un_escritorio]['pasos_alternancia'].buscar_cliente(fila_filtrada)
+                            #break
+                        elif configuracion_atencion == "FIFO":
+                            cliente_seleccionado = FIFO(fila_filtrada)
+                            #print(f"cliente_seleccionado por {un_escritorio} en configuración FIFO: su emisión fue a las: {cliente_seleccionado.FH_Emi}")
+                            #break
+                        elif configuracion_atencion == "Rebalse":
+                            cliente_seleccionado = extract_highest_priority_and_earliest_time_row(fila_filtrada, prioridades)
+                            #print(f"cliente_seleccionado por {un_escritorio} en configuración Rebalse: su emisión fue a las: {cliente_seleccionado.FH_Emi}")
+                        fila = remove_selected_row(fila, cliente_seleccionado)
+                        svisor.iniciar_atencion(un_escritorio, cliente_seleccionado)
+                        un_cliente   = pd.DataFrame(cliente_seleccionado[['FH_Emi', 'IdSerie', 'espera']]).T
+                        registros_atenciones   =  pd.concat([registros_atenciones, un_cliente])#.reset_index(drop=True)
+                        
+                        
+                        #SLA_una_emision  =  pd.DataFrame(list(reporte_SLA_x_serie(simulacion, 35).items()), columns=['keys', 'values'])
+                        
+                        SLA_una_emision  =  pd.DataFrame(list(nivel_atencion_x_serie(registros_atenciones, niveles_servicio_x_serie).items()), columns=['keys', 'values'])
+
+                        
+                        SLA_index+=1
+                        #SLA_index = reloj_simulacion
+                        
+                        SLA_una_emision['index']            = SLA_una_emision.shape[0]*[SLA_index]
+                        SLA_una_emision['hora'] = reloj_simulacion.time().strftime('%H:%M:%S')
+                        SLA_df                              = pd.concat([SLA_df, SLA_una_emision], ignore_index=True)#.reset_index(drop=True)
+                        ######################################################################################################################################
+                        Espera_una_emision        =  pd.DataFrame(list(tiempo_espera_x_serie(registros_atenciones, series).items()), columns=['keys', 'values'])
+                        Espera_index+=1
+                        Espera_una_emision['index']  = Espera_una_emision.shape[0]*[Espera_index]
+                        Espera_una_emision['hora']   = reloj_simulacion.time().strftime('%H:%M:%S')#un_cliente.FH_Emi[un_cliente.FH_Emi.index[0]].time().strftime('%H:%M:%S')#
+                        Espera_df                    = pd.concat([Espera_df, Espera_una_emision], ignore_index=True)
+                        
+            try:
+                #Iterar a la siguiente emisión
+                #svisor.aplicar_agenda(hora_actual=  reloj_simulacion, agenda = agenda)    
+                una_emision            = next(generador_emisiones_in)
+                emi                    = una_emision['FH_Emi']
+                #print(f"siguiente emisión {emi}")
+            except StopIteration:
+                #print(f"-----------------------------Se acabaron las emisiones en la emision numero {numero_emision} ---------------------------")
+                break   
+
+    # registros_SLA = SLA_df.pivot(index=['index','hora'], columns=['keys'], values='values').rename_axis(None, axis=1)#.drop_duplicates(subset=['emisión'])
+
+    # df_reset = registros_SLA.reset_index()
+    # duplicates =  df_reset['hora'].duplicated(keep=False)
+    # registros_SLA = df_reset[~duplicates].drop('index', axis=1,inplace=False).reset_index(drop=True, inplace=False)
+    
+    # trajectorias_esperas = Espera_df.pivot(index=['index', 'hora'], columns=['keys'], values='values').rename_axis(None, axis=1)
+    # df_count, df_avg     = process_dataframe(registros_atenciones, factor_conversion_T_esp=1)
+
+    return registros_atenciones
+
+
+
 def timestamp_iterator(initial_timestamp: str):
     current_time = initial_timestamp
     while True:
