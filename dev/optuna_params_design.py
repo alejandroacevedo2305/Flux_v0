@@ -1,57 +1,71 @@
 #%%
 import optuna
-from itertools import chain, combinations
 import math
 from src.simulador_v02 import *  
 from src.gymnasium_utils import *  
 from scipy.stats import gmean
 from src.datos_utils import *
+from src.optuna_utils import *
 import optuna
 import itertools
 import pandas as pd
-def extract_skills_length(data):
-    result = {}
-    
-    # Initialize a variable to store the sum of all lengths.
-    total_length = 0
-    
-    # Iterate over keys and values in the input dictionary.
-    for key, entries in data.items():
-        # Initialize an empty list to store the lengths for this key.
-        lengths_for_key = []
-        
-        # Iterate over each entry which is a dictionary.
-        for entry in entries:
-            # Access the 'skills' field, and calculate its length.
-            skills_length = len(entry['propiedades']['skills'])
-            
-            # Add the current length to the total_length.
-            total_length += skills_length
-            
-            # Append this length to the list for this key.
-            lengths_for_key.append(skills_length)
-        
-        # Store the list of lengths in the result dictionary, using the same key.
-        result[key] = lengths_for_key
-    
-    # Return the result dictionary and the total sum of all lengths.
-    return total_length #, result
-def non_empty_subsets(lst):
-    return list(chain.from_iterable(combinations(lst, r) for r in range(1, len(lst) + 1)))
 
-dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
-un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-skills   = obtener_skills(un_dia)
-series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-SLAs     = [(0.6, 30), (0.34, 35), (0.7, 45)]
-niveles_servicio_x_serie = {s:random.choice(SLAs) for s in series}
 
+########################################################################
+#-------------Cargar parámetros desde datos históricos------------------
+########################################################################
+# dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
+# un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+# skills   = obtener_skills(un_dia)
+# series   = sorted(list({val for sublist in skills.values() for val in sublist}))
+# SLAs     = [(0.6, 30), (0.34, 35), (0.7, 45)]
+# niveles_servicio_x_serie = {s:random.choice(SLAs) for s in series}
+########################################################################
+#--------Reconstruir planificación desde trials guardados en sqlite------------------
+########################################################################
+
+def calcular_optimo(multi_obj):
+    return multi_obj[0]/(multi_obj[1]+multi_obj[2]) # max_SLA/(min_Esc + min_Skills)
+def extract_max_value_keys(input_dict):
+    output_dict = {}  # Initialize an empty dictionary to store the result
+    # Loop through each item in the input dictionary
+    for workforce, values_dict in input_dict.items():
+        max_key = max(values_dict, key=values_dict.get)  # Find the key with the maximum value in values_dict
+        max_value = values_dict[max_key]  # Get the maximum value
+        output_dict[workforce] = (max_key, max_value)  # Add the key and value to the output dictionary
+    return output_dict  # Return the output dictionary
+
+recomendaciones_db   = optuna.storages.get_storage("sqlite:///multiple_studies.db")
+resumenes            = optuna.study.get_all_study_summaries(recomendaciones_db)
+nombres              = [s.study_name for s in resumenes if "workforce_" in s.study_name]
+
+scores_studios = {}
+for un_nombre in nombres:
+    un_estudio            = optuna.multi_objective.load_study(study_name=un_nombre, storage=recomendaciones_db)
+    trials_de_un_estudio  = un_estudio.get_trials(deepcopy=False) #or pareto trials??
+    scores_studios        = scores_studios | {f"{un_nombre}":
+        { trial.number: calcular_optimo(trial.values)
+                for
+                    trial in trials_de_un_estudio if trial.state == optuna.trial.TrialState.COMPLETE}
+                    }    
+ 
+trials_optimos          = extract_max_value_keys(scores_studios)
+planificaciones_optimas = {}   
+for k,v in trials_optimos.items():
+    un_estudio               = optuna.multi_objective.load_study(study_name=k, storage=recomendaciones_db)
+    trials_de_un_estudio     = un_estudio.get_trials(deepcopy=False)
+    planificaciones_optimas  = planificaciones_optimas | {f"{k}":
+        trial.user_attrs.get('planificacion')#calcular_optimo(trial.values)
+                for
+                    trial in trials_de_un_estudio if trial.number == v[0]
+                    }   
+
+[plan for tramo,plan in planificaciones_optimas.items()]
+#%%
 """ 
-In my triple objective optuna study, optuna is only printing the value of the first objective like:
- Trial 36 finished with values: (76.52058832556892,) with parameters: {'
-I want to see the value of the three objectives, here is my code:
 """
 
+#%%
 def objective(trial, un_dia,skills, subsets, niveles_servicio_x_serie,  modos_atenciones:list = ["Alternancia", "FIFO", "Rebalse"]):
     try:
         bool_vector  = [trial.suggest_categorical(f'escritorio_{i}', [True, False]) for i in range(len(skills.keys()))]
@@ -80,14 +94,13 @@ def objective(trial, un_dia,skills, subsets, niveles_servicio_x_serie,  modos_at
                 planificacion[str(key)] = [inner_dict]
         #print(f"---------------------------{planificacion}")
         trial.set_user_attr('planificacion', planificacion)
-        registros_SLA = simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades)       
+        registros_atenciones = optuna_simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades) 
         
-        obj1 = gmean(registros_SLA.drop("hora", axis=1).iloc[-1].dropna())
-        obj2 = sum(bool_vector)
-        obj3 = extract_skills_length(planificacion)
-        print(f"SLA global: {obj1}, n Escritorios: {obj2}, n Series cargadas: {obj3}")
         
-        return obj1, obj2, obj3 #gmean(registros_SLA.drop("hora", axis=1).iloc[-1].dropna()), sum(bool_vector), extract_skills_length(planificacion)
+        registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
+        series                          = sorted(list({val for sublist in skills.values() for val in sublist}))
+        registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]      
+        
 
     except Exception as e:
         print(f"An exception occurred: {e}")
@@ -121,6 +134,30 @@ for idx, part in enumerate(partitions):
 
 #%%
 # --------------PLOTLY-----------------------
+import optuna
+import math
+from src.simulador_v02 import *  
+from src.gymnasium_utils import *  
+from scipy.stats import gmean
+from src.datos_utils import *
+from src.optuna_utils import *
+
+import optuna
+import itertools
+import pandas as pd
+dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
+un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+skills   = obtener_skills(un_dia)
+series   = sorted(list({val for sublist in skills.values() for val in sublist}))
+SLAs     = [(0.6, 30), (0.34, 35), (0.7, 45)]
+niveles_servicio_x_serie = {s:random.choice(SLAs) for s in series}
+rows = len(un_dia)
+chunk_size = rows // 4
+partitions = [un_dia.iloc[i:i + chunk_size] for i in range(0, rows, chunk_size)]
+# Create a SQLite storage to save all studies
+#storage = optuna.storages.get_storage("sqlite:///multiple_studies.db")
+tramos = [f"{str(p.FH_Emi.min().time())} - {str(p.FH_Emi.max().time())}" for p in partitions]
+
 import json
 def format_dict_for_hovertext(dictionary):
     formatted_str = ""
