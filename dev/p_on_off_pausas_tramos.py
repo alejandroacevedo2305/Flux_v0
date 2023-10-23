@@ -3,6 +3,8 @@
 #import math
 #from src.simulador_v02 import *  
 #from scipy.stats import gmean
+import os
+os.chdir('/DeepenData/Repos/Flux_v0')
 from src.datos_utils import *
 #import optuna
 #import itertools
@@ -40,16 +42,22 @@ def get_time_intervals(df, n, percentage:float=100):
 
 dataset     = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-get_time_intervals(el_dia_real, 4, 80)
+get_time_intervals(el_dia_real, 4, 100)
 #%%
 """ 
-From that function I am getting outputs like this:
+I have this list of tuples with time intervals within; (start, end):
 
 [('08:40:11', '10:07:44'),
  ('10:07:44', '11:35:17'),
  ('11:35:17', '13:02:50'),
  ('13:02:50', '14:30:23')]
- 
-Now add a new argument which has to be a percentage (like 80). If the input is 80, it means that you
-have to report only the  last 80% of each interval 
+
+Also, I have a dataframe with the column "FH_Emi" having dtype as satetime64[s], 
+an entry in "FH_Emi" may look like 2023-05-15 08:42:12.
+
+I need a function to partition my dataframe in to the number of tuples (or time intervals) in the list above,
+So the number of output partitions (each one has to be dataframes) is equal to the number of
+time intervals. Each partition must start and end  according the time interval and the values in FH_Emi. 
+
+
 """

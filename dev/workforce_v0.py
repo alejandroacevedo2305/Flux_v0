@@ -1,4 +1,6 @@
 #%%
+import os
+os.chdir("/DeepenData/Repos/Flux_v0")
 import warnings
 warnings.filterwarnings("ignore")
 from datetime import date, time
@@ -135,11 +137,12 @@ all_SLAs = [sla_x_serie(r_x_s, '1H', corte = corte)[1]['espera'] for r_x_s, s, c
                                                                           [20, 20, 20, 20, 20, 20])]
 
 tuple(calculate_geometric_mean(series) for series in all_SLAs)
-#%%
+
 #plot_all_reports(df_pairs[0:3], tipo_SLA = "SLA", color_sla="darkgoldenrod",n_rows=1,n_cols=3)
 
 
-plot_all_reports([df_pairs[idx] for idx in [0,2]], tipo_SLA = "SLA histórico", color_sla="darkgoldenrod",n_rows=1,n_cols=2, heigth=3, width=10)
+#plot_all_reports([df_pairs[idx] for idx in [0,1,2,3,4,]], tipo_SLA = "SLA histórico", color_sla="darkgoldenrod",n_rows=1,n_cols=2, heigth=10, width=10)
+plot_all_reports([df_pairs[idx] for idx in [0,1,2,3,4,5]], tipo_SLA = "SLA histórico", color_sla="navy",n_rows=3,n_cols=2, heigth=10, width=12)
 
 #plot_all_reports(df_pairs, tipo_SLA = "SLA", color_sla="darkgoldenrod")
 

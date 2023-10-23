@@ -1254,7 +1254,7 @@ def optuna_simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
     # trajectorias_esperas = Espera_df.pivot(index=['index', 'hora'], columns=['keys'], values='values').rename_axis(None, axis=1)
     # df_count, df_avg     = process_dataframe(registros_atenciones, factor_conversion_T_esp=1)
 
-    return registros_atenciones
+    return pd.concat([fila[['FH_Emi','IdSerie','espera']], registros_atenciones]).sort_values(by='FH_Emi', inplace=False).reset_index(drop=True), len(fila)
 
 
 
