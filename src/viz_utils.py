@@ -136,7 +136,7 @@ plot_all_reports_two_lines(df_pairs_1 = [df_pairs_his[idx] for idx in [0,1,2,3,4
                            label_1="SLA histórico", label_2="SLA con IA", 
                            color_1="navy", color_2="purple", 
                            n_rows=3, n_cols=2, height=10, width=12, main_title="FONASA, Monjitas, 2023-05-15.")
-#%%
+
 """ 
 """
 from src.optuna_utils import *
@@ -163,18 +163,18 @@ for k,v in trials_optimos.items():
     planificaciones_optimas  = planificaciones_optimas | {f"{k}":
         trial.user_attrs.get('planificacion')#calcular_optimo(trial.values)
                 for
-                    trial in trials_de_un_estudio if trial.number == v[0]
-#%%                    }   
+                    trial in trials_de_un_estudio if trial.number == v[0]}
+#%%                   
 SLAs     = [(0.6, 30), (0.34, 35), (0.7, 45)]
 niveles_servicio_x_serie = {s:random.choice(SLAs) for s in series}
 planificacion                =  plan_unico([plan for tramo,plan in planificaciones_optimas.items()])
 prioridades                  =  prioridad_x_serie(niveles_servicio_x_serie, 2, 1) 
 registros_atenciones, l_fila =  optuna_simular(planificacion, niveles_servicio_x_serie, el_dia_real, prioridades)
-#%%
+
 registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
 registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
 df_pairs = [(sla_x_serie(r_x_s, '1H', corte = corte, factor_conversion_T_esp=1), s) for r_x_s, s, corte in zip(registros_x_serie, series,
-                                                                          [20, 20, 20, 20, 20, 20])]
+                                                                          [20, 20, 6, 35, 25, 26])]
 
 plot_all_reports_two_lines(df_pairs_1 = [df_pairs_his [idx] for idx in [0,1,2,3,4,5]], 
                            df_pairs_2 = [df_pairs[idx] for idx in [0,1,2,3,4,5]], 
