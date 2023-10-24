@@ -62,10 +62,27 @@ def plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, ax1
     # Find the shorter length among the two series
     min_len = min(min_len_1, min_len_2)
 
-    # Use fill_between to create the shaded area
-    ax2.fill_between(x_labels[:min_len], df_avg_1['espera'][:min_len], df_avg_2['espera'][:min_len], 
-                     where=(df_avg_1['espera'][:min_len] != df_avg_2['espera'][:min_len]), 
-                     interpolate=True, color='green', alpha=0.2)
+    # Modified fill_between section to handle color changes based on conditions
+    ax2.fill_between(
+        x_labels[:min_len], 
+        df_avg_1['espera'][:min_len], 
+        df_avg_2['espera'][:min_len], 
+        where=(df_avg_1['espera'][:min_len] < df_avg_2['espera'][:min_len]), 
+        interpolate=True, 
+        color='green', 
+        alpha=0.2
+    )
+
+    ax2.fill_between(
+        x_labels[:min_len], 
+        df_avg_1['espera'][:min_len], 
+        df_avg_2['espera'][:min_len], 
+        where=(df_avg_1['espera'][:min_len] >= df_avg_2['espera'][:min_len]), 
+        interpolate=True, 
+        color='red', 
+        alpha=0.13
+    )
+
 
     ax1.set_xlabel('')
     ax1.set_ylabel('Demanda (#)', color='black')
@@ -80,8 +97,8 @@ def plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, ax1
     # Add grid and background color
     ax1.grid(color='black', linestyle='-', linewidth=0.25, alpha=0.35)  
     ax2.grid(color='black', linestyle='-', linewidth=0.25, alpha=0.35)  
-    ax1.set_facecolor((0.75, 0.75, 0.75, .8))  
-    ax2.set_facecolor((0.75, 0.75, 0.75, .8))  
+    ax1.set_facecolor((0.75, 0.75, 0.75, .9))  
+    ax2.set_facecolor((0.75, 0.75, 0.75, .9))  
 
 # Plotting function for all subplots with two lines
 def plot_all_reports_two_lines(df_pairs_1, df_pairs_2, label_1, label_2, color_1, color_2, n_rows, n_cols, height, width, main_title):
@@ -120,4 +137,13 @@ plot_all_reports_two_lines(df_pairs_1 = [df_pairs[idx] for idx in [0,1,2,3,4,5]]
                            color_1="navy", color_2="purple", 
                            n_rows=3, n_cols=2, height=10, width=12, main_title="FONASA, Monjitas, 2023-05-15.")
 
-
+""" 
+Now the shaded area between lines is:
+    # Use fill_between to create the shaded area
+    ax2.fill_between(x_labels[:min_len], df_avg_1['espera'][:min_len], df_avg_2['espera'][:min_len], 
+                     where=(df_avg_1['espera'][:min_len] != df_avg_2['espera'][:min_len]), 
+                     interpolate=True, color='green', alpha=0.2)
+                     
+I need the color of the shaded area shift to red when when the line labeled as
+SLA histórico ("navy" color) is higher than the line labeled as SLA IA ("purple" color).
+"""
