@@ -266,8 +266,25 @@ progress_bar.close()
 # - Cambiar el storage por Postgres? SQLITE funciona pero deberia ser optimo en algun momento
 
 #%%
-
+import numpy as np
 import optuna
+from src.optuna_utils import *
+
+
+def weighted_mean(data_tuple, weights_tuple=None):
+    data_array = np.array(data_tuple)
+    if weights_tuple is None:
+        weights_array = np.ones(len(data_array))
+    else:
+        weights_array = np.array(weights_tuple)
+
+    if len(data_array) != len(weights_array):
+        raise ValueError("The length of data and weights must be the same.")
+    return np.average(data_array, weights=weights_array)
+
+
+
+
 
 recomendaciones_db   = optuna.storages.get_storage("sqlite:///alejandro_objs_v2.db") # Objetivos de 6-salidas
 resumenes            = optuna.study.get_all_study_summaries(recomendaciones_db)
@@ -278,11 +295,14 @@ for un_nombre in nombres:
     un_estudio            = optuna.multi_objective.load_study(study_name=un_nombre, storage=recomendaciones_db)
     trials_de_un_estudio  = un_estudio.get_trials(deepcopy=False) #or pareto trials??
     scores_studios        = scores_studios | {f"{un_nombre}":
-        { trial.number: trial.values
+        { trial.number: -1*weighted_mean(trial.values)
                 for
                     trial in trials_de_un_estudio if trial.state == optuna.trial.TrialState.COMPLETE}
                     } 
     
+trials_optimos          = extract_max_value_keys(scores_studios) # Para cada tramo, extrae el maximo, 
+trials_optimos
+#%%    
 # score_studios >>> 'tramo' : (trial, (tupla de minimos cuadrados))
 # {'tramo_0': {0: (695.0413223140498,
 #    23.662716309404832,
