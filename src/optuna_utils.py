@@ -88,3 +88,42 @@ def plan_unico(lst_of_dicts):
         new_list.append(new_dct)
         
     return {str(k): v for d in new_list for k, v in d.items()}
+
+
+def get_time_intervals(df, n, percentage:float=100):
+    # Step 1: Find the minimum and maximum times from the FH_Emi column
+    min_time = df['FH_Emi'].min()
+    max_time = df['FH_Emi'].max()    
+    # Step 2: Calculate the total time span
+    total_span = max_time - min_time    
+    # Step 3: Divide this span by n to get the length of each interval
+    interval_length = total_span / n    
+    # Step 4: Create the intervals
+    intervals = [(min_time + i*interval_length, min_time + (i+1)*interval_length) for i in range(n)]    
+    # New Step: Adjust the start time of each interval based on the percentage input
+    adjusted_intervals = [(start_time + 0.01 * (100 - percentage) * (end_time - start_time), end_time) for start_time, end_time in intervals]
+    # Step 5: Format the intervals as requested
+    formatted_intervals = [(start_time.strftime('%H:%M:%S'), end_time.strftime('%H:%M:%S')) for start_time, end_time in adjusted_intervals]
+    
+    return formatted_intervals
+def partition_dataframe_by_time_intervals(df, intervals):
+    partitions = []    
+    # Loop over each time interval to create a partition
+    for start, end in intervals:
+        # Convert the time strings to Pandas time objects
+        start_time = pd.to_datetime(start).time()
+        end_time = pd.to_datetime(end).time()        
+        # Create a mask for filtering the DataFrame based on the time interval
+        mask = (df['FH_Emi'].dt.time >= start_time) & (df['FH_Emi'].dt.time <= end_time)        
+        # Apply the mask to the DataFrame to get the partition and append to the list
+        partitions.append(df[mask])        
+    return partitions
+
+
+
+
+if __name__ == "__main__":
+    #  
+    pass
+
+
