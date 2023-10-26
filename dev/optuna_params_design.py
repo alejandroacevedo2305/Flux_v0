@@ -78,10 +78,63 @@ planificacion                =  plan_unico([plan for tramo,plan in planificacion
 #  '3': [{'inicio': '08:40:11',
 #    'termino': '10:07:40',
 # # ... # VALIDAR ESTE OBJETO! 
-
+#%%
 prioridades                  =  prioridad_x_serie(niveles_servicio_x_serie, 2, 1) # Reemplazado por un input/historico desde la DB
-registros_atenciones, l_fila =  optuna_simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades) # 
 
+
+planificacion = {'0': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills': [5, 10, 11, 12, 14],
+    'configuracion_atencion': 'Rebalse'}}],
+ '1': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills': [5, 10, 17],
+    'configuracion_atencion': 'Alternancia'}}],
+ '2': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills': [5, 10, 11],
+    'configuracion_atencion': 'Alternancia'}}],
+ '3': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills': [10, 11, 17], 'configuracion_atencion': 'FIFO'}}],
+ '4': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills': [5, 10, 11],
+    'configuracion_atencion': 'Alternancia'}}],
+ '11': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills': [5, 10, 11],
+    'configuracion_atencion': 'Alternancia'}}],
+ '12': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills': [11, 12, 14, 17],
+    'configuracion_atencion': 'Rebalse'}}],
+ '33': [{'inicio': '11:36:03',
+   'termino': '13:02:33',
+   'propiedades': {'skills': [5, 10, 12, 17],
+    'configuracion_atencion': 'Alternancia'}}],
+ '34': [{'inicio': '11:36:03',
+   'termino': '13:02:33',
+   'propiedades': {'skills': [14, 17],
+    'configuracion_atencion': 'Alternancia'}}],
+ '35': [{'inicio': '11:36:03',
+   'termino': '13:02:33',
+   'propiedades': {'skills': [11, 12, 14, 17],
+    'configuracion_atencion': 'Rebalse'}}],
+ '49': [{'inicio': '13:02:56',
+   'termino': '14:30:23',
+   'propiedades': {'skills': [5, 11], 'configuracion_atencion': 'Rebalse'}}],
+ '50': [{'inicio': '13:02:56',
+   'termino': '14:30:23',
+   'propiedades': {'skills': [5, 10, 11, 12],
+    'configuracion_atencion': 'Rebalse'}}],
+ '51': [{'inicio': '13:02:56',
+   'termino': '14:30:23',
+   'propiedades': {'skills': [5, 11, 14, 17],
+    'configuracion_atencion': 'FIFO'}}]}
+
+registros_atenciones, l_fila =  optuna_simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades) # 
+#%%
 # registros_atenciones -> tiene el mismo largo de las atenciones
 # l_fila -> Cantidad de no atendidos al final del dia 
 

@@ -1213,7 +1213,7 @@ def optuna_simular(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
                             #print(f"cliente_seleccionado por {un_escritorio} en configuración Rebalse: su emisión fue a las: {cliente_seleccionado.FH_Emi}")
                         fila = remove_selected_row(fila, cliente_seleccionado)
                         svisor.iniciar_atencion(un_escritorio, cliente_seleccionado)
-                        un_cliente   = pd.DataFrame(cliente_seleccionado[['FH_Emi', 'IdSerie', 'espera']]).T
+                        un_cliente   = pd.DataFrame(cliente_seleccionado[['FH_Emi', 'IdSerie', 'espera','IdEsc','T_Ate']]).T
                         registros_atenciones   =  pd.concat([registros_atenciones, un_cliente])#.reset_index(drop=True)
                         
                         
