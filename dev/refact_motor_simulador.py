@@ -35,12 +35,9 @@ class MisEscritorios:
         """        
         self.skills                 = skills
         self.configuraciones        = configuraciones
-        #anexar las configuraciones de atenciones al dicionario de las skills usando unir_values_en_tupla. 
-        #los key-values por ejemplo quedan así 'escritorio_2': ([2, 5, 6, 7, 13, 16], 'RR')    
-        
         self.niveles_servicio_x_serie = niveles_servicio_x_serie
         
-        self.skills_configuraciones = unir_values_en_tupla(self.skills, self.configuraciones)      
+        self.skills_configuraciones   = unir_values_en_tupla(self.skills, self.configuraciones)      
         #iteramos self.skills_configuraciones para armar el dicionario con los escritorios
         self.escritorios            = {key: #escritorio i
                                     {
@@ -130,3 +127,6 @@ planificacion = {'0': [{'inicio': '08:40:11',
 configuraciones = {k:np.random.choice(["Alternancia", "FIFO", "Rebalse"], p=[.5,.25,.25]) for k in skills}
 svisor          = MisEscritorios(skills= skills, configuraciones = configuraciones, niveles_servicio_x_serie = niveles_servicio_x_serie)
 svisor.escritorios
+""" 
+Modificar clase `MisEscritorios` para que se instancie con `planificacion`, `niveles_servicio_x_serie` y `prioridades`
+"""
