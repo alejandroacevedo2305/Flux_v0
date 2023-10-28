@@ -666,8 +666,8 @@ def obtener_skills(un_dia):
         skills_defaultdict[key] = list(set(skills_defaultdict[key]))
         
     skills = dict(skills_defaultdict)   
-        
-    return {f"escritorio_{k}": v for k, v in skills.items()}#
+    return {f"{k}": v for k, v in skills.items()}#
+    #return {f"escritorio_{k}": v for k, v in skills.items()}#
 
 def filtrar_escritorios_x_estado(data_dict: Dict[int, List[int]], flag_dict: Dict[int, bool]) -> Dict[int, List[int]]:
 

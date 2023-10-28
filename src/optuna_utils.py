@@ -118,10 +118,55 @@ def partition_dataframe_by_time_intervals(df, intervals):
         # Apply the mask to the DataFrame to get the partition and append to the list
         partitions.append(df[mask])        
     return partitions
+import random
+def get_random_non_empty_subset(lst):
+    """
+    Get a random non-empty subset from a list.
 
+    Parameters:
+    lst (list): The list from which to generate a subset.
 
+    Returns:
+    list: A random non-empty subset of the input list.
+    """
+    # Step 1: Check that the input list is not empty
+    if not lst:
+        return "Input list is empty, cannot generate a subset."
+    
+    # Step 2: Generate a random integer for the size of the subset.
+    # Since we want a non-empty subset, we select a size between 1 and len(lst).
+    subset_size = random.randint(1, len(lst))
+    
+    # Step 3: Randomly select 'subset_size' unique elements from the list
+    return random.sample(lst, subset_size)
 
-
+def extract_skills_length(data):
+    result = {}
+    
+    # Initialize a variable to store the sum of all lengths.
+    total_length = 0
+    
+    # Iterate over keys and values in the input dictionary.
+    for key, entries in data.items():
+        # Initialize an empty list to store the lengths for this key.
+        lengths_for_key = []
+        
+        # Iterate over each entry which is a dictionary.
+        for entry in entries:
+            # Access the 'skills' field, and calculate its length.
+            skills_length = len(entry['propiedades']['skills'])
+            
+            # Add the current length to the total_length.
+            total_length += skills_length
+            
+            # Append this length to the list for this key.
+            lengths_for_key.append(skills_length)
+        
+        # Store the list of lengths in the result dictionary, using the same key.
+        result[key] = lengths_for_key
+    
+    # Return the result dictionary and the total sum of all lengths.
+    return total_length #, result
 if __name__ == "__main__":
     #  
     pass

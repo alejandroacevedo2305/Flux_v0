@@ -1,4 +1,8 @@
 #%%
+
+import os
+os.chdir("/DeepenData/Repos/Flux_v0")
+
 import optuna
 import math
 from src.simulador_v02 import *  
