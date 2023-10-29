@@ -177,7 +177,8 @@ class MisEscritorios:
                                        configuracion_atencion:str=None, 
                                        conexion:bool=None, 
                                        duracion_pausas: tuple = None, # min_val:int=None, avg_val:int=None, max_val:int=None, 
-                                       probabilidad_pausas:float=None) -> None:
+                                       probabilidad_pausas:float=None,
+                                       porcentaje_actividad=None) -> None:
         """_summary_
         Modifica las propiedades del escritorio. Si una propiedad entra vacía se ignora. 
         Args:
@@ -193,6 +194,7 @@ class MisEscritorios:
                   'conexion': conexion,
                   'duracion_pausas': duracion_pausas, #(min_val, avg_val, max_val),
                   'probabilidad_pausas': probabilidad_pausas,
+                  'porcentaje_actividad':porcentaje_actividad,
                   }
         #remover propiedades del escritorio que no se modifican
         campos = {k: v for k, v in campos.items() if v is not None}
@@ -237,8 +239,8 @@ class MisEscritorios:
         minutos_pausa             = generador_pausa(min_val, avg_val, max_val, probabilidad_pausas)
         
         self.escritorios_ON[escritorio]['contador_tiempo_pausa'] = iter(islice(count(start=0, step=1), minutos_pausa))#nuevo contador de minutos limitado por n_minutos
-        self.escritorios_ON[escritorio]['estado']                = 'pausa'#estado bloqueado significa que está atendiendo al cliente.
-        self.escritorios_ON[escritorio]['minutos_pausa']         = minutos_pausa#tiempo de atención  
+        self.escritorios_ON[escritorio]['estado']                = 'pausa'#estado
+        self.escritorios_ON[escritorio]['minutos_pausa']         = minutos_pausa#tiempo 
         
     def iniciar_tiempo_disponible(self,escritorio):
         self.escritorios_ON[escritorio]['contador_tiempo_disponible'] = iter(count(start=0, step=1))
