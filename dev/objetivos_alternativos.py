@@ -154,7 +154,8 @@ def objective(trial,
         print(f"An exception occurred: {e}")
         raise optuna.TrialPruned()
     
-#Si hay porcentaje_actividad no hay pausas    
+#Si hay porcentaje_actividad no hay pausas  
+#n es el numero de intervalos (equidistantes) de tiempo   
 intervals  = get_time_intervals(un_dia, n = 4, porcentaje_actividad = .9) # Una funcion que recibe un dia, un intervalo, y un porcentaje de actividad para todos los intervalos
 partitions = partition_dataframe_by_time_intervals(un_dia, intervals) # TODO: implementar como un static del simulador? 
 optimizar  = "SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
