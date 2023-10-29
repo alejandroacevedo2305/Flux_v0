@@ -62,25 +62,22 @@ planificacion = {'0': [{'inicio': '08:40:11',
    'propiedades': {'skills':get_random_non_empty_subset(series),
     'configuracion_atencion': random.sample(modos, 1)[0]}}]}
 
-
-#%%
 registros_atenciones, l_fila =  optuna_simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades) # 
 registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
 registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
-# %%
-
-extract_skills_length(planificacion)
-
-pocentajes_SLA    = [int(100*v[0])for k,v in niveles_servicio_x_serie.items()]
-mins_de_corte_SLA = [int(v[1])for k,v in niveles_servicio_x_serie.items()]
-df_pairs                        = [(sla_x_serie(r_x_s, '1H', corte = corte, factor_conversion_T_esp=1), s) 
-                                    for r_x_s, s, corte in zip(registros_x_serie, series, mins_de_corte_SLA)]
+# pocentajes_SLA    = [int(100*v[0])for k,v in niveles_servicio_x_serie.items()]
+# mins_de_corte_SLA = [int(v[1])for k,v in niveles_servicio_x_serie.items()]
+# df_pairs                        = [(sla_x_serie(r_x_s, '1H', corte = corte, factor_conversion_T_esp=1), s) 
+#                                     for r_x_s, s, corte in zip(registros_x_serie, series, mins_de_corte_SLA)]
 
 
-porcentajes_reales  = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
-dif_cuadratica      = {k:(v-p)**2 for ((k,v),p) in zip(porcentajes_reales.items(),pocentajes_SLA)}
+# porcentajes_reales  = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
+# dif_cuadratica      = {k:(v-p)**2 for ((k,v),p) in zip(porcentajes_reales.items(),pocentajes_SLA)}
 
+# #La mayor prioridad es el entero más chico
+# tuple(np.array(tuple(prioridades.values()))*np.array(tuple(dif_cuadratica.values())))
 
+#%%
 import optuna
 def objective(trial, 
     optimizar: str, 
@@ -127,8 +124,9 @@ def objective(trial,
                                     for r_x_s, s, corte in zip(registros_x_serie, series, mins_de_corte_SLA)]
         porcentajes_reales    = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
         dif_cuadratica        = {k:(v-p)**2 for ((k,v),p) in zip(porcentajes_reales.items(),pocentajes_SLA)}
-        #Objetivos:        
-        maximizar_SLAs        = tuple(dif_cuadratica.values())
+        #Objetivos:    
+        #La mayor prioridad es el entero más chico    
+        maximizar_SLAs        = tuple(np.array(tuple(prioridades.values()))*np.array(tuple(dif_cuadratica.values())))#Ponderado por prioridad
         minimizar_escritorios = (sum(bool_vector),)
         minimizar_skills      = (extract_skills_length(planificacion),)
         
@@ -149,7 +147,7 @@ def objective(trial,
         
         elif optimizar == "SLA + escritorios + skills":
             
-            print(f"maximizar_SLAs, minimizar_escritorios y minimizar_skills  {maximizar_SLAs, minimizar_escritorios, minimizar_skills }")
+            print(f"debugged {minimizar_escritorios + minimizar_skills }, {len(maximizar_SLAs + minimizar_escritorios + minimizar_skills)}")
             return  maximizar_SLAs + minimizar_escritorios + minimizar_skills           
         
     except Exception as e:
@@ -157,7 +155,6 @@ def objective(trial,
         raise optuna.TrialPruned()
     
     
-storage    = optuna.storages.get_storage("sqlite:///alejandro_objs_v2.db")
 intervals  = get_time_intervals(un_dia, 4, 100) # Una funcion que recibe un dia, un intervalo, y un porcentaje de actividad para todos los intervalos
 partitions = partition_dataframe_by_time_intervals(un_dia, intervals) # TODO: implementar como un static del simulador? 
 optimizar  = "SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
@@ -172,6 +169,8 @@ n_objs = int(
         )
 n_trials   = 1
 #%%
+storage    = optuna.storages.get_storage("sqlite:///alejandro_objs_v3.db")
+
 for idx, part in enumerate(partitions):
     study_name = f"tramo_{idx}"
     study = optuna.multi_objective.create_study(directions= n_objs*['minimize'],
@@ -202,7 +201,7 @@ skills   = obtener_skills(un_dia)
 series   = sorted(list({val for sublist in skills.values() for val in sublist}))
 
 
-recomendaciones_db   = optuna.storages.get_storage("sqlite:///alejandro_objs_v2.db") # Objetivos de 6-salidas
+recomendaciones_db   = optuna.storages.get_storage("sqlite:///alejandro_objs_v3.db") # Objetivos de 6-salidas
 resumenes            = optuna.study.get_all_study_summaries(recomendaciones_db)
 nombres              = [s.study_name for s in resumenes if "tramo_" in s.study_name]
 
@@ -211,10 +210,11 @@ for un_nombre in nombres:
     un_estudio            = optuna.multi_objective.load_study(study_name=un_nombre, storage=recomendaciones_db)
     trials_de_un_estudio  = un_estudio.get_trials(deepcopy=False) #or pareto trials??
     scores_studios        = scores_studios | {f"{un_nombre}":
-        { trial.number: np.mean([x for x in trial.values if x is not None]) 
+        { trial.number: trial.values #np.mean([x for x in trial.values if x is not None]) 
                 for
                     trial in trials_de_un_estudio if trial.state == optuna.trial.TrialState.COMPLETE}
                     } 
+scores_studios
 #%%
 
 def extract_min_value_keys(input_dict):
@@ -238,6 +238,7 @@ for k,v in trials_optimos.items():
                     trial in trials_de_un_estudio if trial.number == v[0]
                     }   
 
-planificacion                =  plan_unico([plan for tramo,plan in planificaciones_optimas.items()])
-planificacion
+planificacion_optima                =  plan_unico([plan for tramo,plan in planificaciones_optimas.items()])
+
 # %%
+registros_atenciones_optima, l_fila_optima =  optuna_simular(planificacion_optima, niveles_servicio_x_serie, un_dia, prioridades) # 

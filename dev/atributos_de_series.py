@@ -56,3 +56,6 @@ def atributos_x_serie(ids_series, sla_porcen_user=None, sla_corte_user=None, pas
 if __name__ == "__main__":
     atributos_x_serie(ids_series=[6,  7,  11], sla_porcen_user=[20, 60, 80], 
                   sla_corte_user=[10*60, 15*60, 25*60], pasos_user=None, prioridades_user=[1,2,3])
+#%%
+# atributos_x_serie(ids_series=[6,  7,  11, 10], sla_porcen_user=None, 
+#                   sla_corte_user=None, pasos_user=[6,4,4,4], prioridades_user=[4,3,2,1])
