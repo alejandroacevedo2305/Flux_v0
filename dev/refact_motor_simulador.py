@@ -8,57 +8,31 @@ from dev.atributos_de_series import atributos_x_serie
 from src.datos_utils import *
 from src.optuna_utils import *
 from src.simulador_v02 import *  
-
-def unir_values_en_tupla(data_dict: Dict[int, List[int]], label_dict: Dict[int, str]) -> Dict[int, Tuple[List[int], str]]:
-
-    return {key: (value, label_dict.get(key, '')) for key, value in data_dict.items()}
+import pandas as pd
 
 def actualizar_conexiones(original_dict, update_dict):  
-
-    # Iterate through each key-value pair in the update_dict
     for key, value in update_dict.items():
-        # Check if the key exists in the original_dict
-
         if key in original_dict:
-            # Update the 'conexion' field with the new boolean value
             original_dict[key]['conexion'] = value            
-
     return deepcopy(original_dict)
+  
 class MisEscritorios:
     
-    def __init__(self, skills:Dict[str, List[int]], configuraciones: Dict[str, str], conexiones: Dict[str, bool] = None, niveles_servicio_x_serie:dict =None):
-        """_summary_
-        Args:
-            skills (Dict[str, List[int]]): Series cargadas para cada escritorio.
-            configuraciones (Dict[str, str]): Configuraciones de atencion para cada escritorio. 
-            conexiones (Dict[str, bool], optional): estado de la conexion de los escritorios. Defaults to None.
-        """        
-        self.skills                 = skills
-        self.configuraciones        = configuraciones
-        self.niveles_servicio_x_serie = niveles_servicio_x_serie
-        
-        self.skills_configuraciones   = unir_values_en_tupla(self.skills, self.configuraciones)      
-        #iteramos self.skills_configuraciones para armar el dicionario con los escritorios
-        self.escritorios            = {key: #escritorio i
-                                    {
-                                    "skills":series,#series, #series cargadas en el escritorio i
-                                    'contador_bloqueo':None, #campo vacío donde se asignará un iterador que cuenta los minutos que el escritorio estará ocupado en servicio 
-                                    'minutos_bloqueo':None, #campo vacío donde se asignarán los minutos que se demora la atención 
-                                    'estado':'disponible', #si el escritorio está o no disponible para atender   
-                                    'configuracion_atencion':config, #configuración del tipo de antención, FIFO, RR, etc.
-                                    'pasos_alternancia': None, #objeto que itera en la tabla con pasos de alternancia.
-                                    'conexion':None, #campo vacío donde se asignará el estado de la conexión del escritorio (ON/OFF)
-                                    'numero_de_atenciones':0, #min 
-                                    'numero_pausas':       None,
-                                    'numero_desconexiones': None,
-                                    'tiempo_actual_disponible':   0, #max
-                                    'tiempo_actual_en_atención':  None,
-                                    'tiempo_actual_pausa':        None,
-                                    'tiempo_actual_desconectado': None,
-                                    'contador_tiempo_disponible': iter(count(start=0, step=1)),
-                                    'duracion_pausas': (1, 4, 47), #min, avg, max
-                                    'probabilidad_pausas':.5, #probabilidad que la pausa ocurra
-                                    } for key,(series, config) in self.skills_configuraciones.items()}        
+    def __init__(self,
+                 inicio_tramo:  pd.Timestamp, 
+                 fin_tramo:     pd.Timestamp,
+                 planificacion: dict, 
+                 conexiones:    dict = None):
+      
+        self.planificacion = planificacion
+        self.escritorios   = {k:{
+                                "skills": v[0]['propiedades']['skills'],
+                                'modo_atencion' : v[0]['propiedades']['modo_atencion'],
+                                'porcentaje_actividad': v[0]['propiedades']['porcentaje_actividad'],
+                                'contador_tiempo_disponible': iter(count(start=0, step=1)),
+                                'numero_de_atenciones':0,
+                                } 
+                              for k,v in self.planificacion.items()}
         if not conexiones:
         #     #si no se provee el estado de los conexiones se asumen todas como True (todos conectados):
              conexiones                         = {f"{key}": random.choices([True, False], [1, 0])[0] for key in self.escritorios}
@@ -87,46 +61,77 @@ prioridades =       {atr_dict['serie']:
                     atr_dict['prioridad']
                     for atr_dict in atributos_series}
 
-planificacion = {'0': [{'inicio': '08:40:11',
-   'termino': '10:07:40',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0]}}],
- '1': [{'inicio': '08:40:11',
-   'termino': '10:07:40',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0]}}],
- '12': [{'inicio': '08:40:11',
-   'termino': '10:07:40',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0]}}],
- '33': [{'inicio': '11:36:03',
-   'termino': '13:02:33',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0]}}],
- '34': [{'inicio': '11:36:03',
-   'termino': '13:02:33',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0]}}],
- '35': [{'inicio': '11:36:03',
-   'termino': '13:02:33',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0]}}],
- '49': [{'inicio': '13:02:56',
-   'termino': '14:30:23',
-   'propiedades': {'skills': get_random_non_empty_subset(series), 
-    'configuracion_atencion':random.sample(modos, 1)[0]}}],
- '50': [{'inicio': '13:02:56',
-   'termino': '14:30:23',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0]}}],
- '51': [{'inicio': '13:02:56',
-   'termino': '14:30:23',
-   'propiedades': {'skills':get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0]}}]}
+
 #%%
-configuraciones = {k:np.random.choice(["Alternancia", "FIFO", "Rebalse"], p=[.5,.25,.25]) for k in skills}
-svisor          = MisEscritorios(skills= skills, configuraciones = configuraciones, niveles_servicio_x_serie = niveles_servicio_x_serie)
-svisor.escritorios
 """ 
 Modificar clase `MisEscritorios` para que se instancie con `planificacion`, `niveles_servicio_x_serie` y `prioridades`
 """
+
+planificacion = {'0': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills' : get_random_non_empty_subset(series),
+    'modo_atencion': random.sample(modos, 1)[0],
+    'porcentaje_actividad'  : np.random.randint(50, 90)/100,          
+    }}],
+ '1': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills': get_random_non_empty_subset(series),
+    'modo_atencion': random.sample(modos, 1)[0],
+    'porcentaje_actividad'  : np.random.randint(50, 90)/100,
+    }}],
+ '12': [{'inicio': '08:40:11',
+   'termino': '10:07:40',
+   'propiedades': {'skills': get_random_non_empty_subset(series),
+    'modo_atencion': random.sample(modos, 1)[0],
+    'porcentaje_actividad'  : np.random.randint(50, 90)/100,
+    }}],
+ '33': [{'inicio': '11:36:03',
+   'termino': '13:02:33',
+   'propiedades': {'skills': get_random_non_empty_subset(series),
+    'modo_atencion': random.sample(modos, 1)[0],
+    'porcentaje_actividad'  : np.random.randint(50, 90)/100,
+    }}],
+ '34': [{'inicio': '11:36:03',
+   'termino': '13:02:33',
+   'propiedades': {'skills': get_random_non_empty_subset(series),
+    'modo_atencion': random.sample(modos, 1)[0],
+    'porcentaje_actividad'  : np.random.randint(50, 90)/100,
+    }}],
+ '35': [{'inicio': '11:36:03',
+   'termino': '13:02:33',
+   'propiedades': {'skills': get_random_non_empty_subset(series),
+    'modo_atencion': random.sample(modos, 1)[0],
+    'porcentaje_actividad'  : np.random.randint(50, 90)/100,
+    }}],
+ '49': [{'inicio': '13:02:56',
+   'termino': '14:30:23',
+   'propiedades': {'skills': get_random_non_empty_subset(series), 
+    'modo_atencion':random.sample(modos, 1)[0],
+    'porcentaje_actividad'  : np.random.randint(50, 90)/100,
+    }}],
+ '50': [{'inicio': '13:02:56',
+   'termino': '14:30:23',
+   'propiedades': {'skills': get_random_non_empty_subset(series),
+    'modo_atencion': random.sample(modos, 1)[0],
+    'porcentaje_actividad'  : np.random.randint(50, 90)/100,
+    }}],
+ '51': [{'inicio': '13:02:56',
+   'termino': '14:30:23',
+   'propiedades': {'skills':get_random_non_empty_subset(series),
+    'modo_atencion': random.sample(modos, 1)[0],
+    'porcentaje_actividad'  : np.random.randint(50, 90)/100,
+    }}]}
+
+supervisor          = MisEscritorios(inicio_tramo  = un_dia['FH_Emi'].min(),
+                                     fin_tramo     = un_dia['FH_Emi'].max(),
+                                     planificacion = planificacion)
+#%%
+
+inicio_tramo  = un_dia['FH_Emi'].min()
+fin_tramo     = un_dia['FH_Emi'].max()
+porcentaje_actividad = 0.6
+assert 0 < porcentaje_actividad <= 1
+tiempo_total         = (fin_tramo - inicio_tramo).total_seconds()/60
+duracion_inactividad = (1-porcentaje_actividad)*tiempo_total
+duracion_inactividad
+# %%
