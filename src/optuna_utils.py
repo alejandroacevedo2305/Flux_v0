@@ -3,6 +3,8 @@ from itertools import chain, combinations
 from scipy import stats
 import numpy as np
 import pandas as pd
+import optuna
+
 def sla_x_serie(df, interval='1H', corte=45, factor_conversion_T_esp:int=60):
     df = df.reset_index(drop=False)
     df['FH_Emi'] = pd.to_datetime(df['FH_Emi'])  # Convert to datetime

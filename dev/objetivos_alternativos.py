@@ -61,6 +61,8 @@ planificacion = {'0': [{'inicio': '08:40:11',
    'termino': '14:30:23',
    'propiedades': {'skills':get_random_non_empty_subset(series),
     'configuracion_atencion': random.sample(modos, 1)[0]}}]}
+
+
 #%%
 registros_atenciones, l_fila =  optuna_simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades) # 
 registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
@@ -77,9 +79,8 @@ df_pairs                        = [(sla_x_serie(r_x_s, '1H', corte = corte, fact
 
 porcentajes_reales  = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
 dif_cuadratica      = {k:(v-p)**2 for ((k,v),p) in zip(porcentajes_reales.items(),pocentajes_SLA)}
-tuple(dif_cuadratica.values()) # Output del objetivo de Optuna -- Minimizar todas
 
-# %%
+
 import optuna
 def objective(trial, 
     optimizar: str, 
@@ -170,17 +171,14 @@ n_objs = int(
             else None
         )
 n_trials   = 1
+#%%
 for idx, part in enumerate(partitions):
-
-
     study_name = f"tramo_{idx}"
     study = optuna.multi_objective.create_study(directions= n_objs*['minimize'],
                                                 study_name=study_name,
                                                 storage=storage, load_if_exists=True)
-
     # TODO: sacar fuera
     subsets = non_empty_subsets(sorted(list({val for sublist in skills.values() for val in sublist})))
-
     # Optimize with a timeout (in seconds)
     study.optimize(lambda trial: objective(trial,
                                            optimizar                = optimizar,
@@ -191,4 +189,55 @@ for idx, part in enumerate(partitions):
                    n_trials  = n_trials, #int(1e4),  # Make sure this is an integer
                    timeout   = 2*3600,    #  hours
                    )  # 
+#%%-------------Extraer el mejor objetivo--------------------
+from dev.atributos_de_series import atributos_x_serie
+from src.datos_utils import *
+from src.optuna_utils import *
+from src.simulador_v02 import *  
+import random
+
+dataset  = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
+un_dia   = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+skills   = obtener_skills(un_dia)
+series   = sorted(list({val for sublist in skills.values() for val in sublist}))
+
+
+recomendaciones_db   = optuna.storages.get_storage("sqlite:///alejandro_objs_v2.db") # Objetivos de 6-salidas
+resumenes            = optuna.study.get_all_study_summaries(recomendaciones_db)
+nombres              = [s.study_name for s in resumenes if "tramo_" in s.study_name]
+
+scores_studios = {}
+for un_nombre in nombres:
+    un_estudio            = optuna.multi_objective.load_study(study_name=un_nombre, storage=recomendaciones_db)
+    trials_de_un_estudio  = un_estudio.get_trials(deepcopy=False) #or pareto trials??
+    scores_studios        = scores_studios | {f"{un_nombre}":
+        { trial.number: np.mean([x for x in trial.values if x is not None]) 
+                for
+                    trial in trials_de_un_estudio if trial.state == optuna.trial.TrialState.COMPLETE}
+                    } 
 #%%
+
+def extract_min_value_keys(input_dict):
+    output_dict = {}  # Initialize an empty dictionary to store the result
+    # Loop through each item in the input dictionary
+    for workforce, values_dict in input_dict.items():
+        max_key = min(values_dict, key=values_dict.get)  # Find the key with the maximum value in values_dict
+        max_value = values_dict[max_key]  # Get the maximum value
+        output_dict[workforce] = (max_key, max_value)  # Add the key and value to the output dictionary
+    return output_dict  # Return the output dictionary
+    
+
+trials_optimos          = extract_min_value_keys(scores_studios) # Para cada tramo, extrae el maximo, 
+planificaciones_optimas = {}   
+for k,v in trials_optimos.items():
+    un_estudio               = optuna.multi_objective.load_study(study_name=k, storage=recomendaciones_db)
+    trials_de_un_estudio     = un_estudio.get_trials(deepcopy=False)
+    planificaciones_optimas  = planificaciones_optimas | {f"{k}":
+        trial.user_attrs.get('planificacion')#calcular_optimo(trial.values)
+                for
+                    trial in trials_de_un_estudio if trial.number == v[0]
+                    }   
+
+planificacion                =  plan_unico([plan for tramo,plan in planificaciones_optimas.items()])
+planificacion
+# %%
