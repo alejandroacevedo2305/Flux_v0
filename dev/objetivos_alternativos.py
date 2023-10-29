@@ -61,10 +61,10 @@ planificacion = {'0': [{'inicio': '08:40:11',
    'termino': '14:30:23',
    'propiedades': {'skills':get_random_non_empty_subset(series),
     'configuracion_atencion': random.sample(modos, 1)[0]}}]}
-
+#testear inputs para la simulación:
 registros_atenciones, l_fila =  optuna_simular(planificacion, niveles_servicio_x_serie, un_dia, prioridades) # 
-registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
-registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
+# registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
+# registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
 # pocentajes_SLA    = [int(100*v[0])for k,v in niveles_servicio_x_serie.items()]
 # mins_de_corte_SLA = [int(v[1])for k,v in niveles_servicio_x_serie.items()]
 # df_pairs                        = [(sla_x_serie(r_x_s, '1H', corte = corte, factor_conversion_T_esp=1), s) 
@@ -85,7 +85,7 @@ def objective(trial,
     skills,  # {'escritorio_7': [10, 12], 'escritorio_10': [17, 14], 'escritorio_12': [17, 14], 'escritorio_11': <...> io_5': [10, 5], 'escritorio_8': [10, 12], 'escritorio_1': [10, 11, 12], 'escritorio_3': [10, 11]}
     subsets, # [(5,), (10,), (11,), (12,), (14,), (17,), (5, 10), (5, 11), (5, 12), (5, 14), (5, 17), (10, 11),  <...> 14, 17), (5, 10, 12, 14, 17), (5, 11, 12, 14, 17), (10, 11, 12, 14, 17), (5, 10, 11, 12, 14, 17)]
     niveles_servicio_x_serie,  # {5: (0.34, 35), 10: (0.34, 35), 11: (0.7, 45), 12: (0.34, 35), 14: (0.34, 35), 17: (0.6, 30)}
-    
+    prioridades:dict,
     modos_atenciones : list = ["Alternancia", "FIFO", "Rebalse"]
     ):    
     try:
@@ -93,7 +93,7 @@ def objective(trial,
         bool_vector              = [trial.suggest_categorical(f'escritorio_{i}', [True, False]) for i in range(len(skills.keys()))]
         str_dict                 = {i: trial.suggest_categorical(f'{i}',         modos_atenciones) for i in range(len(skills.keys()))} 
         subset_idx               = {i: trial.suggest_int(f'ids_{i}', 0, len(subsets) - 1) for i in range(len(skills.keys()))}   
-        prioridades              =  prioridad_x_serie(niveles_servicio_x_serie, 2, 1) 
+        #prioridades              =  prioridad_x_serie(niveles_servicio_x_serie, 2, 1) 
         planificacion            =  {} # Arma una planificacion con espacios parametricos. 
         inicio                   =  str(un_dia.FH_Emi.min().time())#'08:33:00'
         termino                  =  str(un_dia.FH_Emi.max().time())#'14:33:00'
@@ -154,8 +154,8 @@ def objective(trial,
         print(f"An exception occurred: {e}")
         raise optuna.TrialPruned()
     
-    
-intervals  = get_time_intervals(un_dia, 4, 100) # Una funcion que recibe un dia, un intervalo, y un porcentaje de actividad para todos los intervalos
+#Si hay porcentaje_actividad no hay pausas    
+intervals  = get_time_intervals(un_dia, n = 4, porcentaje_actividad = .9) # Una funcion que recibe un dia, un intervalo, y un porcentaje de actividad para todos los intervalos
 partitions = partition_dataframe_by_time_intervals(un_dia, intervals) # TODO: implementar como un static del simulador? 
 optimizar  = "SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
 n_objs = int(
@@ -184,7 +184,8 @@ for idx, part in enumerate(partitions):
                                            un_dia                   = part,
                                            skills                   = skills,
                                            subsets                  = subsets,
-                                           niveles_servicio_x_serie = niveles_servicio_x_serie),
+                                           niveles_servicio_x_serie = niveles_servicio_x_serie,
+                                           prioridades              = prioridades),
                    n_trials  = n_trials, #int(1e4),  # Make sure this is an integer
                    timeout   = 2*3600,    #  hours
                    )  # 
