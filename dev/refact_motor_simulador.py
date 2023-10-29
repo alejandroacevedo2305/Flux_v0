@@ -1,5 +1,4 @@
 #%%
-
 from typing import Dict, List, Tuple
 import random
 from copy import deepcopy
@@ -28,9 +27,11 @@ class MisEscritorios:
         self.escritorios   = {k:{
                                 "skills": v[0]['propiedades']['skills'],
                                 'modo_atencion' : v[0]['propiedades']['modo_atencion'],
-                                'porcentaje_actividad': v[0]['propiedades']['porcentaje_actividad'],
                                 'contador_tiempo_disponible': iter(count(start=0, step=1)),
                                 'numero_de_atenciones':0,
+                                'porcentaje_actividad': v[0]['propiedades']['porcentaje_actividad'],
+                                'duracion_inactividad':int(
+                                (1- v[0]['propiedades']['porcentaje_actividad'])*(fin_tramo - inicio_tramo).total_seconds()/60)
                                 } 
                               for k,v in self.planificacion.items()}
         if not conexiones:
@@ -41,6 +42,10 @@ class MisEscritorios:
         self.escritorios_ON                     = {}
         self.nuevos_escritorios_programados     = []
         self.registros_escritorios              = []
+        
+        #assert 0 < porcentaje_actividad <= 1
+        #tiempo_total         = (fin_tramo - inicio_tramo).total_seconds()/60
+        #self.duracion_inactividad = (1-porcentaje_actividad)*(fin_tramo - inicio_tramo).total_seconds()/60
         
 dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
@@ -62,7 +67,7 @@ prioridades =       {atr_dict['serie']:
                     for atr_dict in atributos_series}
 
 
-#%%
+
 """ 
 Modificar clase `MisEscritorios` para que se instancie con `planificacion`, `niveles_servicio_x_serie` y `prioridades`
 """
@@ -122,16 +127,11 @@ planificacion = {'0': [{'inicio': '08:40:11',
     'porcentaje_actividad'  : np.random.randint(50, 90)/100,
     }}]}
 
-supervisor          = MisEscritorios(inicio_tramo  = un_dia['FH_Emi'].min(),
+supervisor = MisEscritorios(inicio_tramo  = un_dia['FH_Emi'].min(),
                                      fin_tramo     = un_dia['FH_Emi'].max(),
                                      planificacion = planificacion)
+
+supervisor.escritorios
 #%%
 
-inicio_tramo  = un_dia['FH_Emi'].min()
-fin_tramo     = un_dia['FH_Emi'].max()
-porcentaje_actividad = 0.6
-assert 0 < porcentaje_actividad <= 1
-tiempo_total         = (fin_tramo - inicio_tramo).total_seconds()/60
-duracion_inactividad = (1-porcentaje_actividad)*tiempo_total
-duracion_inactividad
 # %%
