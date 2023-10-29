@@ -36,6 +36,9 @@ class MisEscritorios_v02:
                                                                     int(
                                 (1- v[0]['propiedades']['porcentaje_actividad'])*(fin_tramo - inicio_tramo).total_seconds()/60)
                                                                     )),
+                                'duracion_pausas': (1, 4, 47), #min, avg, max (desde pausas históricas).
+                                'probabilidad_pausas':.5, #probabilidad que la pausa ocurra  (desde pausas históricas).
+                                'numero_pausas':       None,
                                 } 
                               for k,v in self.planificacion.items()}
         if not conexiones:
@@ -185,7 +188,7 @@ class MisEscritorios_v02:
                 self.escritorios_ON[escri_dispon]['tiempo_actual_disponible'] = tiempo_disponible
 
 
-def optuna_simular_v02(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades):
+def optuna_simular_v02(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridades, tipo_inactividad = "Porcentaje"):
   
   planificacion = copy.deepcopy(agenda_INPUT)  
   supervisor    = MisEscritorios_v02(inicio_tramo            = un_dia['FH_Emi'].min(),
@@ -223,7 +226,7 @@ def optuna_simular_v02(agenda_INPUT, niveles_servicio_x_serie, un_dia, prioridad
           #Avanzar un minuto en todos los tiempos de atención en todos los escritorios bloquedos  
           escritorios_bloqueados_conectados    = [k for k,v in supervisor.escritorios_ON.items() if k in escritorios_bloqueados]
                   
-          supervisor.iterar_escritorios_bloqueados(escritorios_bloqueados_conectados)
+          supervisor.iterar_escritorios_bloqueados(escritorios_bloqueados_conectados, tipo_inactividad = tipo_inactividad )
 
       if disponibles:= supervisor.filtrar_x_estado('disponible'):
           conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in disponibles]
@@ -377,7 +380,13 @@ supervisor = MisEscritorios_v02(inicio_tramo  = un_dia['FH_Emi'].min(),
                                      fin_tramo     = un_dia['FH_Emi'].max(),
                                      planificacion = planificacion)
 
+""" 
+El NUEVO parámetro en optuna_simular_v02 "tipo_inactividad" puede ser 'Histórica' o "Porcentaje". Si es porcentaje usará el campo 'porcentaje_actividad' en la planificación, 
+si no ('Histórica'), usará parámetros internos inferidos desde los datos: 
+                                'duracion_pausas': (1, 4, 47), #min, avg, max (desde pausas históricas).
+                                'probabilidad_pausas':.5, #probabilidad que la pausa ocurra  (desde pausas históricas).
 
-registros_atenciones, l_fila =  optuna_simular_v02(planificacion, niveles_servicio_x_serie, un_dia, prioridades) # 
+"""
+registros_atenciones, l_fila =  optuna_simular_v02(planificacion, niveles_servicio_x_serie, un_dia, prioridades, tipo_inactividad = 'Histórica' ) # 
 
 # %%
