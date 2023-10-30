@@ -127,16 +127,16 @@ from src.datos_utils import *
 import random
 
 
-# dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
-# un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-# skills   = obtener_skills(un_dia)
-# series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-# modos    = ['Rebalse','Alternancia', 'Rebalse']
-# atributos_series = atributos_x_serie(ids_series=series, 
-#                                     sla_porcen_user=None, 
-#                                     sla_corte_user=None, 
-#                                     pasos_user=None, 
-#                                     prioridades_user=None)
+dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
+un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+skills   = obtener_skills(un_dia)
+series   = sorted(list({val for sublist in skills.values() for val in sublist}))
+modos    = ['Rebalse','Alternancia', 'Rebalse']
+atributos_series = atributos_x_serie(ids_series=series, 
+                                    sla_porcen_user=None, 
+                                    sla_corte_user=None, 
+                                    pasos_user=None, 
+                                    prioridades_user=None)
 
             
 # tabla_alternancia = pasos_alternancia_v02(atributos_series = atributos_series, skills = [10, 11, 12, 5])
@@ -462,13 +462,9 @@ class MisEscritorios_v03:
                 self.escritorios_ON[escri_dispon]['tiempo_actual_disponible'] = tiempo_disponible
                 
                 
-supervisor = MisEscritorios_v03(inicio_tramo  = un_dia['FH_Emi'].min(),
-                                     fin_tramo     = un_dia['FH_Emi'].max(),
-                                     planificacion = planificacion)
+            
 
-supervisor.escritorios['0']['prioridades']                
-
-def optuna_simular_v02(
+def optuna_simular_v03(
     agenda_INPUT, 
     niveles_servicio_x_serie, 
     un_dia, 
@@ -562,7 +558,7 @@ def optuna_simular_v02(
                           #print(f"cliente_seleccionado por {un_escritorio} en configuración FIFO: su emisión fue a las: {cliente_seleccionado.FH_Emi}")
                           #break
                       elif configuracion_atencion == "Rebalse":
-                          cliente_seleccionado = extract_highest_priority_and_earliest_time_row(fila_filtrada, prioridades)
+                          cliente_seleccionado = extract_highest_priority_and_earliest_time_row(fila_filtrada, supervisor.escritorios_ON[un_escritorio].get('prioridades'))
                           #print(f"cliente_seleccionado por {un_escritorio} en configuración Rebalse: su emisión fue a las: {cliente_seleccionado.FH_Emi}")
                       fila = remove_selected_row(fila, cliente_seleccionado)
                       supervisor.iniciar_atencion(un_escritorio, cliente_seleccionado)
@@ -581,6 +577,15 @@ def optuna_simular_v02(
               #print(f"-----------------------------Se acabaron las emisiones en la emision numero {numero_emision} ---------------------------")
               break   
   return pd.concat([fila[['FH_Emi','IdSerie','espera']], registros_atenciones]).sort_values(by='FH_Emi', inplace=False).reset_index(drop=True), len(fila)
+
+
+
+# supervisor = MisEscritorios_v03(inicio_tramo  = un_dia['FH_Emi'].min(),
+#                                      fin_tramo     = un_dia['FH_Emi'].max(),
+#                                      planificacion = planificacion)
+
+
+# supervisor.escritorios['0'].get('prioridades')
 
 
 dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
@@ -602,4 +607,4 @@ prioridades =       {atr_dict['serie']:
                     atr_dict['prioridad']
                     for atr_dict in atributos_series}
 
-optuna_simular_v02(planificacion, niveles_servicio_x_serie, un_dia, prioridades, tipo_inactividad = 'Porcentaje' )
+optuna_simular_v03(planificacion, niveles_servicio_x_serie, un_dia, prioridades, tipo_inactividad = 'Porcentaje' )
