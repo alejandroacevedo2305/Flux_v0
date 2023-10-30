@@ -4,6 +4,17 @@ import random
 import numpy as np
 import pandas as pd
 from typing import Dict
+import os
+os.chdir("/DeepenData/Repos/Flux_v0")
+from typing import Dict, List, Tuple
+import random
+from copy import deepcopy
+from itertools import count, islice
+import numpy as np
+from dev.atributos_de_series import atributos_x_serie
+import copy
+from src.datos_utils import DatasetTTP, obtener_skills
+
 from src.optuna_utils import (
     sla_x_serie, 
     calculate_geometric_mean, 
@@ -16,74 +27,103 @@ from src.optuna_utils import (
     partition_dataframe_by_time_intervals,  
     plan_unico
     )
-def one_cycle_iterator(series, start_pos):
-    part_one = series[start_pos+1:]
-    part_two = series[:start_pos]
-    complete_cycle = pd.concat([part_one, part_two])
-    return iter(complete_cycle)
 
-def map_priority_to_steps(input_data: Dict[int, Dict[str, int]]) -> Dict[int, Dict[str, int]]:
+from src.simulador_v02 import (
+    one_cycle_iterator,
+    create_multiindex_df,
+    generate_integer, 
+    actualizar_conexiones,
+    generador_emisiones,
+    timestamp_iterator,
+    terminar_un_tramo,
+    iniciar_un_tramo,
+    update_escritorio,
+    separar_por_conexion,
+    poner_pasos_alternancia,
+    pasos_alternancia,
+    mismo_minuto,
+    balancear_carga_escritorios,
+    extract_highest_priority_and_earliest_time_row,
+    remove_selected_row,
+    FIFO
+    ) 
+import pandas as pd
+from dev.atributos_de_series import atributos_x_serie
+from src.datos_utils import *
+#from src.optuna_utils import *
+#from src.simulador_v02 import *  
+import random
 
-    unique_priorities = sorted(set(val['prioridad'] for val in input_data.values()))
-    
-    priority_to_steps = {priority: step for priority, step in zip(unique_priorities, reversed(unique_priorities))}
-    
-    for key, inner_dict in input_data.items():
-        inner_dict['pasos'] = priority_to_steps[inner_dict['prioridad']]
-    
-    return input_data
 
-def create_multiindex_df(data_dict):
 
-    multi_index_list = []
-    sorted_data = sorted(data_dict.items(), key=lambda x: x[1]['prioridad'])
+# def one_cycle_iterator(series, start_pos):
+#     part_one = series[start_pos+1:]
+#     part_two = series[:start_pos]
+#     complete_cycle = pd.concat([part_one, part_two])
+#     return iter(complete_cycle)
+
+# def map_priority_to_steps(input_data: Dict[int, Dict[str, int]]) -> Dict[int, Dict[str, int]]:
+
+#     unique_priorities = sorted(set(val['prioridad'] for val in input_data.values()))
     
-    priority_groups = {}
-    for k, v in sorted_data:
-        priority = v['prioridad']
-        if priority not in priority_groups:
-            priority_groups[priority] = []
-        priority_groups[priority].append((k, v))
+#     priority_to_steps = {priority: step for priority, step in zip(unique_priorities, reversed(unique_priorities))}
     
-    position = 0  # To enumerate rows
-    for priority, items in priority_groups.items():
+#     for key, inner_dict in input_data.items():
+#         inner_dict['pasos'] = priority_to_steps[inner_dict['prioridad']]
+    
+#     return input_data
+
+# def create_multiindex_df(data_dict):
+
+#     multi_index_list = []
+#     sorted_data = sorted(data_dict.items(), key=lambda x: x[1]['prioridad'])
+    
+#     priority_groups = {}
+#     for k, v in sorted_data:
+#         priority = v['prioridad']
+#         if priority not in priority_groups:
+#             priority_groups[priority] = []
+#         priority_groups[priority].append((k, v))
+    
+#     position = 0  # To enumerate rows
+#     for priority, items in priority_groups.items():
         
-        random.shuffle(items)
+#         random.shuffle(items)
         
-        for k, v in items:
-            pasos = v['pasos']
+#         for k, v in items:
+#             pasos = v['pasos']
             
-            # Add each entry 'pasos' number of times
-            for _ in range(pasos):
-                multi_index_list.append((position, priority, k))
-                position += 1
+#             # Add each entry 'pasos' number of times
+#             for _ in range(pasos):
+#                 multi_index_list.append((position, priority, k))
+#                 position += 1
                 
-    multi_index = pd.MultiIndex.from_tuples(
-        multi_index_list, 
-        names=["posicion", "prioridad", "serie"]
-    )
+#     multi_index = pd.MultiIndex.from_tuples(
+#         multi_index_list, 
+#         names=["posicion", "prioridad", "serie"]
+#     )
     
-    # Initialize the DataFrame
-    df = pd.DataFrame(index=multi_index)
+#     # Initialize the DataFrame
+#     df = pd.DataFrame(index=multi_index)
     
-    return df
+#     return df
 
-def rank_by_magnitude(arr):
-    sorted_indices = sorted(enumerate(arr), key=lambda x: x[1], reverse=True)
-    rank_arr = [0] * len(arr)
-    rank = 1  # Initialize rank
-    for i in range(len(sorted_indices)):
-        index, value = sorted_indices[i]
-        if i > 0 and value == sorted_indices[i - 1][1]:
-            pass  # Don't increment the rank
-        else:
-            rank = i + 1  # Set new rank
-        rank_arr[index] = rank  # Store the rank at the original position
-    return rank_arr
+# def rank_by_magnitude(arr):
+#     sorted_indices = sorted(enumerate(arr), key=lambda x: x[1], reverse=True)
+#     rank_arr = [0] * len(arr)
+#     rank = 1  # Initialize rank
+#     for i in range(len(sorted_indices)):
+#         index, value = sorted_indices[i]
+#         if i > 0 and value == sorted_indices[i - 1][1]:
+#             pass  # Don't increment the rank
+#         else:
+#             rank = i + 1  # Set new rank
+#         rank_arr[index] = rank  # Store the rank at the original position
+#     return rank_arr
 
-def calcular_prioridad(porcentaje, espera, alpha:float=2, beta:float=1):
+# def calcular_prioridad(porcentaje, espera, alpha:float=2, beta:float=1):
     
-    return ((porcentaje**alpha)/(espera**beta))
+#     return ((porcentaje**alpha)/(espera**beta))
 
 def generar_pasos_para_alternancia_v02(atributos_series):
 
@@ -120,27 +160,6 @@ class pasos_alternancia_v02():
                 raise ValueError(
                 "Las series del escritorio no coinciden con la serie del cliente. No se puede atender. ESTO NO DE DEBERIA PASAR, EL FILTRO TIENE QUE ESTAR FUERA DEL OBJETO.")
 
-from dev.atributos_de_series import atributos_x_serie
-from src.datos_utils import *
-#from src.optuna_utils import *
-#from src.simulador_v02 import *  
-import random
-
-
-dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
-un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-skills   = obtener_skills(un_dia)
-series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-modos    = ['Rebalse','Alternancia', 'Rebalse']
-atributos_series = atributos_x_serie(ids_series=series, 
-                                    sla_porcen_user=None, 
-                                    sla_corte_user=None, 
-                                    pasos_user=None, 
-                                    prioridades_user=None)
-
-            
-# tabla_alternancia = pasos_alternancia_v02(atributos_series = atributos_series, skills = [10, 11, 12, 5])
-# tabla_alternancia.pasos
 
 def poner_pasos_alternancia_v02(escritorios: dict, class_to_instantiate):
     """ 
@@ -155,119 +174,6 @@ def poner_pasos_alternancia_v02(escritorios: dict, class_to_instantiate):
 
     return escritorios
 
-planificacion = {'0': [{'inicio': '08:40:11',
-   'termino': '10:07:40',
-   'propiedades': {'skills' : get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0],
-    'porcentaje_actividad'  : np.random.randint(75, 90)/100,
-        'atributos_series':atributos_series,
-          
-    }}],
- '1': [{'inicio': '08:40:11',
-   'termino': '10:07:40',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0],
-    'porcentaje_actividad'  : np.random.randint(75, 90)/100,
-        'atributos_series':atributos_series,
-
-    }}],
- '12': [{'inicio': '08:40:11',
-   'termino': '10:07:40',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0],
-    'porcentaje_actividad'  : np.random.randint(75, 90)/100,
-        'atributos_series':atributos_series,
-
-    }}],
- '33': [{'inicio': '11:36:03',
-   'termino': '13:02:33',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0],
-    'porcentaje_actividad'  : np.random.randint(75, 90)/100,
-        'atributos_series':atributos_series,
-
-    }}],
- '34': [{'inicio': '11:36:03',
-   'termino': '13:02:33',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0],
-    'porcentaje_actividad'  : np.random.randint(75, 90)/100,
-        'atributos_series':atributos_series,
-
-    }}],
- '35': [{'inicio': '11:36:03',
-   'termino': '13:02:33',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0],
-    'porcentaje_actividad'  : np.random.randint(75, 90)/100,
-        'atributos_series':atributos_series,
-
-    }}],
- '49': [{'inicio': '13:02:56',
-   'termino': '14:30:23',
-   'propiedades': {'skills': get_random_non_empty_subset(series), 
-    'configuracion_atencion':random.sample(modos, 1)[0],
-    'porcentaje_actividad'  : np.random.randint(75, 90)/100,
-        'atributos_series':atributos_series,
-
-    }}],
- '50': [{'inicio': '13:02:56',
-   'termino': '14:30:23',
-   'propiedades': {'skills': get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0],
-    'porcentaje_actividad'  : np.random.randint(75, 90)/100,
-        'atributos_series':atributos_series,
-
-    }}],
- '51': [{'inicio': '13:02:56',
-   'termino': '14:30:23',
-   'propiedades': {'skills':get_random_non_empty_subset(series),
-    'configuracion_atencion': random.sample(modos, 1)[0],
-    'porcentaje_actividad'  : np.random.randint(75, 90)/100,
-    'atributos_series':atributos_series,
-    }}]}
-import os
-os.chdir("/DeepenData/Repos/Flux_v0")
-from typing import Dict, List, Tuple
-import random
-from copy import deepcopy
-from itertools import count, islice
-import numpy as np
-from dev.atributos_de_series import atributos_x_serie
-import copy
-from src.datos_utils import DatasetTTP, obtener_skills
-
-from src.optuna_utils import (
-    sla_x_serie, 
-    calculate_geometric_mean, 
-    extract_skills_length, 
-    extract_min_value_keys, 
-    extract_max_value_keys, 
-    non_empty_subsets, 
-    get_random_non_empty_subset, 
-    get_time_intervals,
-    partition_dataframe_by_time_intervals,  
-    plan_unico
-    )
-
-from src.simulador_v02 import (
-    generate_integer, 
-    actualizar_conexiones,
-    generador_emisiones,
-    timestamp_iterator,
-    terminar_un_tramo,
-    iniciar_un_tramo,
-    update_escritorio,
-    separar_por_conexion,
-    poner_pasos_alternancia,
-    pasos_alternancia,
-    mismo_minuto,
-    balancear_carga_escritorios,
-    extract_highest_priority_and_earliest_time_row,
-    remove_selected_row,
-    FIFO
-    ) 
-import pandas as pd
 class MisEscritorios_v03:
     
     def __init__(self,
@@ -468,7 +374,6 @@ def optuna_simular_v03(
     agenda_INPUT, 
     niveles_servicio_x_serie, 
     un_dia, 
-    prioridades, 
     tipo_inactividad = "Porcentaje"):
   
   planificacion = copy.deepcopy(agenda_INPUT)  
@@ -580,31 +485,101 @@ def optuna_simular_v03(
 
 
 
-# supervisor = MisEscritorios_v03(inicio_tramo  = un_dia['FH_Emi'].min(),
-#                                      fin_tramo     = un_dia['FH_Emi'].max(),
-#                                      planificacion = planificacion)
+if __name__ == "__main__":
+    #  Example
 
 
-# supervisor.escritorios['0'].get('prioridades')
 
 
-dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
-un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-skills   = obtener_skills(un_dia)
-series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-modos    = ['Rebalse','Alternancia', 'Rebalse']
-atributos_series = atributos_x_serie(ids_series=series, 
-                                    sla_porcen_user=None, 
-                                    sla_corte_user=None, 
-                                    pasos_user=None, 
-                                    prioridades_user=None)
+    dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
+    un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+    skills   = obtener_skills(un_dia)
+    series   = sorted(list({val for sublist in skills.values() for val in sublist}))
+    modos    = ['Rebalse','Alternancia', 'Rebalse']
+    atributos_series = atributos_x_serie(ids_series=series, 
+                                        sla_porcen_user=None, 
+                                        sla_corte_user=None, 
+                                        pasos_user=None, 
+                                        prioridades_user=None)
 
-niveles_servicio_x_serie = {atr_dict['serie']:
-                           (atr_dict['sla_porcen']/100, atr_dict['sla_corte']/60) 
-                           for atr_dict in atributos_series}
+    niveles_servicio_x_serie = {atr_dict['serie']:
+                            (atr_dict['sla_porcen']/100, atr_dict['sla_corte']/60) 
+                            for atr_dict in atributos_series}
 
-prioridades =       {atr_dict['serie']:
-                    atr_dict['prioridad']
-                    for atr_dict in atributos_series}
+    prioridades =       {atr_dict['serie']:
+                        atr_dict['prioridad']
+                        for atr_dict in atributos_series}
 
-optuna_simular_v03(planificacion, niveles_servicio_x_serie, un_dia, prioridades, tipo_inactividad = 'Porcentaje' )
+    planificacion = {'0': [{'inicio': '08:40:11',
+    'termino': '10:07:40',
+    'propiedades': {'skills' : get_random_non_empty_subset(series),
+        'configuracion_atencion': random.sample(modos, 1)[0],
+        'porcentaje_actividad'  : np.random.randint(75, 90)/100,
+            'atributos_series':atributos_series,
+            
+        }}],
+    '1': [{'inicio': '08:40:11',
+    'termino': '10:07:40',
+    'propiedades': {'skills': get_random_non_empty_subset(series),
+        'configuracion_atencion': random.sample(modos, 1)[0],
+        'porcentaje_actividad'  : np.random.randint(75, 90)/100,
+            'atributos_series':atributos_series,
+
+        }}],
+    '12': [{'inicio': '08:40:11',
+    'termino': '10:07:40',
+    'propiedades': {'skills': get_random_non_empty_subset(series),
+        'configuracion_atencion': random.sample(modos, 1)[0],
+        'porcentaje_actividad'  : np.random.randint(75, 90)/100,
+            'atributos_series':atributos_series,
+
+        }}],
+    '33': [{'inicio': '11:36:03',
+    'termino': '13:02:33',
+    'propiedades': {'skills': get_random_non_empty_subset(series),
+        'configuracion_atencion': random.sample(modos, 1)[0],
+        'porcentaje_actividad'  : np.random.randint(75, 90)/100,
+            'atributos_series':atributos_series,
+
+        }}],
+    '34': [{'inicio': '11:36:03',
+    'termino': '13:02:33',
+    'propiedades': {'skills': get_random_non_empty_subset(series),
+        'configuracion_atencion': random.sample(modos, 1)[0],
+        'porcentaje_actividad'  : np.random.randint(75, 90)/100,
+            'atributos_series':atributos_series,
+
+        }}],
+    '35': [{'inicio': '11:36:03',
+    'termino': '13:02:33',
+    'propiedades': {'skills': get_random_non_empty_subset(series),
+        'configuracion_atencion': random.sample(modos, 1)[0],
+        'porcentaje_actividad'  : np.random.randint(75, 90)/100,
+            'atributos_series':atributos_series,
+
+        }}],
+    '49': [{'inicio': '13:02:56',
+    'termino': '14:30:23',
+    'propiedades': {'skills': get_random_non_empty_subset(series), 
+        'configuracion_atencion':random.sample(modos, 1)[0],
+        'porcentaje_actividad'  : np.random.randint(75, 90)/100,
+            'atributos_series':atributos_series,
+
+        }}],
+    '50': [{'inicio': '13:02:56',
+    'termino': '14:30:23',
+    'propiedades': {'skills': get_random_non_empty_subset(series),
+        'configuracion_atencion': random.sample(modos, 1)[0],
+        'porcentaje_actividad'  : np.random.randint(75, 90)/100,
+            'atributos_series':atributos_series,
+
+        }}],
+    '51': [{'inicio': '13:02:56',
+    'termino': '14:30:23',
+    'propiedades': {'skills':get_random_non_empty_subset(series),
+        'configuracion_atencion': random.sample(modos, 1)[0],
+        'porcentaje_actividad'  : np.random.randint(75, 90)/100,
+        'atributos_series':atributos_series,
+        }}]}
+
+    optuna_simular_v03(planificacion, niveles_servicio_x_serie, un_dia, tipo_inactividad = 'Porcentaje' )
