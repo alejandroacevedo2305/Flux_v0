@@ -172,6 +172,17 @@ def extract_skills_length(data):
     
     # Return the result dictionary and the total sum of all lengths.
     return total_length #, result
+
+
+def extract_min_value_keys(input_dict):
+    output_dict = {}  # Initialize an empty dictionary to store the result
+    # Loop through each item in the input dictionary
+    for workforce, values_dict in input_dict.items():
+        max_key = min(values_dict, key=values_dict.get)  # Find the key with the maximum value in values_dict
+        max_value = values_dict[max_key]  # Get the maximum value
+        output_dict[workforce] = (max_key, max_value)  # Add the key and value to the output dictionary
+    return output_dict  # Return the output dictionary
+
 if __name__ == "__main__":
     #  
     pass

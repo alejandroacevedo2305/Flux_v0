@@ -381,12 +381,15 @@ supervisor = MisEscritorios_v02(inicio_tramo  = un_dia['FH_Emi'].min(),
                                      planificacion = planificacion)
 
 """ 
-El NUEVO parámetro en optuna_simular_v02 "tipo_inactividad" puede ser 'Histórica' o "Porcentaje". Si es porcentaje usará el campo 'porcentaje_actividad' en la planificación, 
+El NUEVO parámetro en optuna_simular_v02 "tipo_inactividad" puede ser 'Histórica' o "Porcentaje". 
+Si es porcentaje usará el campo 'porcentaje_actividad' en la planificación, 
 si no ('Histórica'), usará parámetros internos inferidos desde los datos: 
-                                'duracion_pausas': (1, 4, 47), #min, avg, max (desde pausas históricas).
-                                'probabilidad_pausas':.5, #probabilidad que la pausa ocurra  (desde pausas históricas).
-
+              'duracion_pausas': (1, 4, 47), #min, avg, max (desde pausas históricas).
+              'probabilidad_pausas':.5, #probabilidad que la pausa ocurra  (desde pausas históricas).
+              
+              
+optuna_simular_v02 llama a la clase MisEscritorios_v02.
 """
-registros_atenciones, l_fila =  optuna_simular_v02(planificacion, niveles_servicio_x_serie, un_dia, prioridades, tipo_inactividad = 'Histórica' ) # 
+registros_atenciones, l_fila =  optuna_simular_v02(planificacion, niveles_servicio_x_serie, un_dia, prioridades, tipo_inactividad = 'Porcentaje' ) # 
 
 # %%
