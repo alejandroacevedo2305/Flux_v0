@@ -4,6 +4,8 @@ from scipy import stats
 import numpy as np
 import pandas as pd
 import optuna
+from scipy.stats.mstats import gmean
+import random
 
 def sla_x_serie(df, interval='1H', corte=45, factor_conversion_T_esp:int=60):
     df = df.reset_index(drop=False)
@@ -21,7 +23,7 @@ def sla_x_serie(df, interval='1H', corte=45, factor_conversion_T_esp:int=60):
     df_percentage = df.resample(interval)['espera'].apply(percentage_below_threshold).reset_index(name='espera')
     
     return df_count, df_percentage
-from scipy.stats.mstats import gmean
+
 
 def calculate_geometric_mean(series):
     series = series.dropna()
@@ -123,7 +125,7 @@ def partition_dataframe_by_time_intervals(df, intervals):
         # Apply the mask to the DataFrame to get the partition and append to the list
         partitions.append(df[mask])        
     return partitions
-import random
+
 def get_random_non_empty_subset(lst):
     """
     Get a random non-empty subset from a list.
