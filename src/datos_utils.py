@@ -2,6 +2,23 @@ from dataclasses import dataclass
 from datetime import date, time, datetime
 import pandas as pd
 import matplotlib.pyplot as plt
+from collections import defaultdict
+
+
+def obtener_skills(un_dia):   
+
+    skills_defaultdict  = defaultdict(list)  
+
+    #for index, row in un_dia.df.iterrows():
+    for index, row in un_dia.iterrows():
+
+        skills_defaultdict[row['IdEsc']].append(row['IdSerie'])
+    for key in skills_defaultdict:
+        skills_defaultdict[key] = list(set(skills_defaultdict[key]))
+        
+    skills = dict(skills_defaultdict)   
+    return {f"{k}": v for k, v in skills.items()}#
+    #return {f"escritorio_{k}": v for k, v in skills.items()}#
 
 def process_dataframe(df, freq='1H', factor_conversion_T_esp:int=60):
     df['FH_Emi'] = pd.to_datetime(df['FH_Emi'])    
