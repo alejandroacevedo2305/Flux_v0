@@ -21,26 +21,35 @@ class MisEscritorios_v02:
       
         self.niveles_servicio_x_serie = niveles_servicio_x_serie
         self.planificacion = planificacion
-        self.escritorios   = {k:{
-                                'estado':'disponible',
-                                'tiempo_actual_disponible':   0, 
-                                "skills": v[0]['propiedades']['skills'],
-                                'configuracion_atencion' : v[0]['propiedades']['configuracion_atencion'],
-                                'contador_tiempo_disponible': iter(count(start=0, step=1)),
-                                'numero_de_atenciones':0,
-                                'porcentaje_actividad': v[0]['propiedades']['porcentaje_actividad'],
-                                'duracion_inactividad':int(
-                                (1- v[0]['propiedades']['porcentaje_actividad'])*(fin_tramo - inicio_tramo).total_seconds()/60),
-                                
-                                'contador_inactividad': iter(islice(count(start=0, step=1), 
-                                                                    int(
-                                (1- v[0]['propiedades']['porcentaje_actividad'])*(fin_tramo - inicio_tramo).total_seconds()/60)
-                                                                    )),
-                                'duracion_pausas': (1, 4, 47), #min, avg, max (desde pausas históricas).
-                                'probabilidad_pausas':.5, #probabilidad que la pausa ocurra  (desde pausas históricas).
-                                'numero_pausas':       None,
-                                } 
-                              for k,v in self.planificacion.items()}
+        self.escritorios = {k: {  # Dictionary comprehension starts; k is the key, and the value is another nested dictionary.
+                                    'estado': 'disponible',  # Assigns the string 'disponible' to the key 'estado'.
+                                    'tiempo_actual_disponible': 0,  # Initializes 'tiempo_actual_disponible' to 0.
+                                    'skills': v[0]['propiedades'].get('skills'),  # Uses .get() to safely extract 'skills' from 'propiedades'.
+                                    
+                                    'configuracion_atencion': v[0]['propiedades'].get('configuracion_atencion'),  # Similar to 'skills', safely extracts 'configuracion_atencion'.
+                                    'contador_tiempo_disponible': iter(count(start=0, step=1)),  # Creates an iterator using Python's itertools.count, starting from 0 and incrementing by 1.
+
+                                    'numero_de_atenciones': 0,  # Initializes 'numero_de_atenciones' to 0.
+                                    
+                                    # Tries to safely extract 'porcentaje_actividad' from 'propiedades' using .get().
+                                    'porcentaje_actividad': v[0]['propiedades'].get('porcentaje_actividad'),
+
+                                    # Checks if 'porcentaje_actividad' exists, and if not, sets 'duracion_inactividad' to None.
+                                    'duracion_inactividad': int(
+                                        (1 - v[0]['propiedades'].get('porcentaje_actividad', 0)) * (fin_tramo - inicio_tramo).total_seconds() / 60
+                                    ) if v[0]['propiedades'].get('porcentaje_actividad') is not None else None,
+                                    
+                                    # Checks if 'porcentaje_actividad' exists, and if not, sets 'contador_inactividad' to None.
+                                    'contador_inactividad': iter(islice(
+                                        count(start=0, step=1),
+                                        int((1 - v[0]['propiedades'].get('porcentaje_actividad', 0)) * (fin_tramo - inicio_tramo).total_seconds() / 60)
+                                    )) if v[0]['propiedades'].get('porcentaje_actividad') is not None else None,
+                                    
+                                    'duracion_pausas': (1, 4, 47),  # Tuple containing min, avg, and max pause durations based on historical data.
+                                    'probabilidad_pausas': .5,  # Probability that a pause will occur, again based on historical data.
+                                    'numero_pausas': None  # Initializes 'numero_pausas' to None.
+                                }
+                                for k, v in self.planificacion.items()}  # The loop iterates over each key-value pair in self.planificacion.
         if not conexiones:
         #     #si no se provee el estado de los conexiones se asumen todas como True (todos conectados):
              conexiones                         = {f"{key}": random.choices([True, False], [1, 0])[0] for key in self.escritorios}
