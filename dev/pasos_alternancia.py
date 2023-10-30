@@ -72,59 +72,24 @@ def calcular_prioridad(porcentaje, espera, alpha:float=2, beta:float=1):
     
     return ((porcentaje**alpha)/(espera**beta))
 
-def generar_pasos_para_alternancia(niveles_servicio_x_serie, alpha:float=2, beta:float=1):
+def generar_pasos_para_alternancia_v02(atributos_series):
 
-    priority_levels     = rank_by_magnitude([calcular_prioridad(porcentaje, espera, alpha, beta)
-                                             for (porcentaje, espera) in niveles_servicio_x_serie.values()])
-    niveles_de_servicio = [{'porcentaje':porcen, "espera":espera, "prioridad" : priori} 
-                           for (porcen, espera), priori in zip(niveles_servicio_x_serie.values(),priority_levels)]
+    return create_multiindex_df({atr_dict['serie']:
+                        {'porcentaje' :atr_dict['sla_porcen'], 
+                        'espera'      :atr_dict['sla_corte']/60, 
+                        'prioridad'   :atr_dict['prioridad'],
+                        'pasos'       :atr_dict['pasos']}
+                        for atr_dict in atributos_series}).reset_index(drop=False)   
 
-    return create_multiindex_df(
-                    map_priority_to_steps({s: niveles_de_servicio[i] for i, s in enumerate(list(niveles_servicio_x_serie.keys()))})
-                    ).reset_index(drop=False)
-    
-
-from dev.atributos_de_series import atributos_x_serie
-from src.datos_utils import *
-#from src.optuna_utils import *
-#from src.simulador_v02 import *  
-import random
-
-
-#dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
-un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-skills   = obtener_skills(un_dia)
-series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-modos    = ['Rebalse','Alternancia', 'Rebalse']
-atributos_series = atributos_x_serie(ids_series=series, 
-                                    sla_porcen_user=None, 
-                                    sla_corte_user=None, 
-                                    pasos_user=None, 
-                                    prioridades_user=None)
-
-niveles_servicio_x_serie = {atr_dict['serie']:
-                           (atr_dict['sla_porcen']/100, atr_dict['sla_corte']/60) 
-                           for atr_dict in atributos_series}  
-
-prioridades =       {atr_dict['serie']:
-                    atr_dict['prioridad']
-                    for atr_dict in atributos_series}             
-#generar_pasos_para_alternancia(niveles_servicio_x_serie)
-
-
-rank_by_magnitude([calcular_prioridad(porcentaje, espera)
-                                             for (porcentaje, espera) in niveles_servicio_x_serie.values()])
-
-#%% 
-class pasos_alternancia():
+class pasos_alternancia_v02():
     
     """ 
     generar pasos de alternancia
     """
     
-    def __init__(self, niveles_servicio_x_serie, skills, alpha:float=2, beta:float=1):
+    def __init__(self, atributos_series, skills):
         
-        self.pasos             = generar_pasos_para_alternancia(niveles_servicio_x_serie, alpha, beta)
+        self.pasos             = generar_pasos_para_alternancia_v02(atributos_series)
         self.pasos             = self.pasos[self.pasos['serie'].isin(skills)].reset_index(drop=True)
         self.pasos['posicion'] = self.pasos.index
         self.iterador_posicion = itertools.cycle(self.pasos.posicion)                   
@@ -146,3 +111,26 @@ class pasos_alternancia():
             else:
                 raise ValueError(
                 "Las series del escritorio no coinciden con la serie del cliente. No se puede atender. ESTO NO DE DEBERIA PASAR, EL FILTRO TIENE QUE ESTAR FUERA DEL OBJETO.")
+
+from dev.atributos_de_series import atributos_x_serie
+from src.datos_utils import *
+#from src.optuna_utils import *
+#from src.simulador_v02 import *  
+import random
+
+
+dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
+un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+skills   = obtener_skills(un_dia)
+series   = sorted(list({val for sublist in skills.values() for val in sublist}))
+modos    = ['Rebalse','Alternancia', 'Rebalse']
+atributos_series = atributos_x_serie(ids_series=series, 
+                                    sla_porcen_user=None, 
+                                    sla_corte_user=None, 
+                                    pasos_user=None, 
+                                    prioridades_user=None)
+
+            
+tabla_alternancia = pasos_alternancia_v02(atributos_series = atributos_series, skills = [10, 11, 12, 5])
+tabla_alternancia.pasos
+#%%
