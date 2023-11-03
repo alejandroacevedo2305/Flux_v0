@@ -45,47 +45,42 @@ atributos_series = atributos_x_serie(ids_series=series,
                                     sla_corte_user=None, 
                                     pasos_user=None, 
                                     prioridades_user=None)
-  
-
-
-#%% 
-
+#%%
+class match_emisiones_reloj():
+    def __init__(self, bloque_atenciones) -> bool:
         
-      
-class match_emision_reloj():
-    def __init__(self, emisiones) -> bool:
-        self.emisiones = emisiones
+        self.bloque_atenciones = bloque_atenciones[['FH_Emi', 'IdSerie', 'T_Ate']]     
+        
+           
+    def match(self, tiempo_actual):
 
-    def match(self, hora_actual):       
+        self.bloque_atenciones['FH_Emi'] = pd.to_datetime(self.bloque_atenciones['FH_Emi'])
+
+        # Convert the given time string to a timedelta object
+        h, m, s = map(int, tiempo_actual.split(':'))
+        given_time = timedelta(hours=h, minutes=m, seconds=s)
+
+        # Filter rows based on the given condition
+        mask = self.bloque_atenciones['FH_Emi'].apply(
+            lambda x: abs(timedelta(hours=x.hour, minutes=x.minute, seconds=x.second) - given_time) <= timedelta(seconds=60))
         
-        self.emision = next(self.emisiones, False)    
-        
-        if self.emision is not False:    
-            if emision_reloj_sync(str(self.emision.FH_Emi.time()), hora_actual):
-                return  True
-            else:
-                print(f'no hay match {hora_actual} - {str(self.emision.FH_Emi.time())}')
-                return False
-        else:
-            #print('emisiones agotadas')
-            return False 
+        # Rows that satisfy the condition
+        self.match_emisiones   = self.bloque_atenciones[mask].copy()        
+        self.bloque_atenciones = self.bloque_atenciones[~mask]#.copy()
+        return self
+
+
        
-hora_cierre           = '9:00:00'
-bloque_horario        = filter_by_time_range(un_dia,str(un_dia.FH_Emi.min().time()), hora_cierre)
-emisiones             = generador_emisiones(bloque_horario)
+hora_cierre           = '9:50:00'
 reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
-matcher_emision_reloj = match_emision_reloj(emisiones)
+registros_atenciones  = pd.DataFrame()
+matcher_emision_reloj = match_emisiones_reloj(un_dia)
 
+#%%
 
-     
 for hora_actual in reloj:
-    
-    while matcher_emision_reloj.match(hora_actual) is not False:
-        print(matcher_emision_reloj.emision)
-        #matcher_emision_reloj = match_emision_reloj(emisiones)
-        
-    
+    matcher_emision_reloj.match(hora_actual)#.match_emisiones
+    #print(matcher_emision_reloj.match_emisiones)
 
     
     
-  
