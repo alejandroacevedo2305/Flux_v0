@@ -230,7 +230,7 @@ class MisEscritorios_v03:
         #for escr_bloq, emi in zip(escritorios_a_bloqueo, emision):
             
             #extraer los minutos que dura la atención asociada a la emision
-        minutos_atencion = round((cliente_seleccionado.FH_AteFin - cliente_seleccionado.FH_AteIni).total_seconds()/60)
+        minutos_atencion = round(cliente_seleccionado.T_Ate/60)#round((cliente_seleccionado.T_Ate - cliente_seleccionado.FH_AteIni).total_seconds()/60)
             #reescribir campos:
             
         self.escritorios_ON[escritorio]['contador_tiempo_atencion'] = iter(islice(count(start=0, step=1), minutos_atencion))#nuevo contador de minutos limitado por n_minutos
