@@ -44,8 +44,7 @@ from dev.pasos_alternancia_y_prioridades_x_escri import (
     generar_pasos_para_alternancia_v02, 
     pasos_alternancia_v02,
     poner_pasos_alternancia_v02,
-    MisEscritorios_v03,
-        
+    MisEscritorios_v03,        
 )
 
 def reloj_rango_horario(start: str, end: str):
@@ -58,30 +57,36 @@ def reloj_rango_horario(start: str, end: str):
         yield "{:02d}:{:02d}:{:02d}".format(hours, remainder, start_time.second)
 
 class match_emisiones_reloj():
-    def __init__(self, bloque_atenciones) -> bool:
-        
-        self.bloque_atenciones = bloque_atenciones[['FH_Emi', 'IdSerie', 'T_Ate']]     
-        
-           
-    def match(self, tiempo_actual):
-
-        
+    def __init__(self, bloque_atenciones) -> bool:        
+        self.bloque_atenciones = bloque_atenciones[['FH_Emi', 'IdSerie', 'T_Ate']]       
+    def match(self, tiempo_actual):        
         # Convert the given time string to a timedelta object
         h, m, s = map(int, tiempo_actual.split(':'))
         given_time = timedelta(hours=h, minutes=m, seconds=s)
         # Filter rows based on the given condition
-        mask = self.bloque_atenciones['FH_Emi'].apply(
-            lambda x: abs(timedelta(hours=x.hour, minutes=x.minute, seconds=x.second) - given_time) <= timedelta(seconds=60))        
-        # Rows that satisfy the condition
-        self.match_emisiones   = self.bloque_atenciones[mask].copy()        
-        self.bloque_atenciones = self.bloque_atenciones[~mask]#.copy()
-        
-        #self.bloque_atenciones['FH_Emi'] = pd.to_datetime(self.bloque_atenciones['FH_Emi'])
-        return self
+        try:
+            mask = self.bloque_atenciones['FH_Emi'].apply(
+                    lambda x: abs(timedelta(
+                    hours=x.hour, minutes=x.minute, seconds=x.second) - given_time) <= timedelta(seconds=60)) 
+                
+            # Rows that satisfy the condition
+            self.match_emisiones   = self.bloque_atenciones[mask].copy()        
+            self.bloque_atenciones = self.bloque_atenciones[~mask]#.copy()            
+            return self
+        except KeyError:
+            pass
+
 
 
 dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+#hora_cierre           = '16:00:00'
+# matcher_emision_reloj = match_emisiones_reloj(un_dia)
+# reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
+
+# for hora_actual in reloj:
+#     matcher_emision_reloj.match(hora_actual)
+#     print(matcher_emision_reloj.match_emisiones.empty)
 skills   = obtener_skills(un_dia)
 series   = sorted(list({val for sublist in skills.values() for val in sublist}))
 modos    = ['FIFO']#['Rebalse','Alternancia', 'Rebalse']
@@ -98,82 +103,81 @@ niveles_servicio_x_serie = {atr_dict['serie']:
 prioridades =       {atr_dict['serie']:
                         atr_dict['prioridad']
                         for atr_dict in atributos_series}   
-#%%
 
 
 import random
-planificacion = {'0': [{'inicio': '08:40:11',
-    'termino': '16:07:40',
+planificacion = {'0': [{'inicio': '08:00:11',
+    'termino': None,
     'propiedades': {'skills' : get_random_non_empty_subset(series),
         'configuracion_atencion': random.sample(modos, 1)[0],
         'porcentaje_actividad'  : np.random.randint(85, 90)/100,
             'atributos_series':atributos_series,
             
         }}],
-    '1': [{'inicio': '08:40:11',
-    'termino': '16:07:40',
+    '1': [{'inicio': '08:00:11',
+    'termino': None,
     'propiedades': {'skills': get_random_non_empty_subset(series),
         'configuracion_atencion': random.sample(modos, 1)[0],
         'porcentaje_actividad'  : np.random.randint(85, 90)/100,
             'atributos_series':atributos_series,
 
         }}],
-    '12': [{'inicio': '08:40:11',
-    'termino': '16:07:40',
+    '12': [{'inicio': '08:00:11',
+    'termino': None,
     'propiedades': {'skills': get_random_non_empty_subset(series),
         'configuracion_atencion': random.sample(modos, 1)[0],
         'porcentaje_actividad'  : np.random.randint(85, 90)/100,
             'atributos_series':atributos_series,
 
         }}],
-    '33': [{'inicio': '08:36:03',
-    'termino': '16:02:33',
+    '33': [{'inicio': '08:00:03',
+    'termino': None,
     'propiedades': {'skills': get_random_non_empty_subset(series),
         'configuracion_atencion': random.sample(modos, 1)[0],
         'porcentaje_actividad'  : np.random.randint(85, 90)/100,
             'atributos_series':atributos_series,
 
         }}],
-    '34': [{'inicio': '08:36:03',
-    'termino': '16:02:33',
+    '34': [{'inicio': '08:00:03',
+    'termino': None,
     'propiedades': {'skills': get_random_non_empty_subset(series),
         'configuracion_atencion': random.sample(modos, 1)[0],
         'porcentaje_actividad'  : np.random.randint(85, 90)/100,
             'atributos_series':atributos_series,
 
         }}],
-    '35': [{'inicio': '08:36:03',
-    'termino': '16:02:33',
+    '35': [{'inicio': '08:00:03',
+    'termino': None,
     'propiedades': {'skills': get_random_non_empty_subset(series),
         'configuracion_atencion': random.sample(modos, 1)[0],
         'porcentaje_actividad'  : np.random.randint(85, 90)/100,
             'atributos_series':atributos_series,
 
         }}],
-    '49': [{'inicio': '08:02:56',
-    'termino': '16:30:23',
+    '49': [{'inicio': '08:00:56',
+    'termino': None,
     'propiedades': {'skills': get_random_non_empty_subset(series), 
         'configuracion_atencion':random.sample(modos, 1)[0],
         'porcentaje_actividad'  : np.random.randint(85, 90)/100,
             'atributos_series':atributos_series,
 
         }}],
-    '50': [{'inicio': '08:02:56',
-    'termino': '16:30:23',
+    '50': [{'inicio': '08:00:56',
+    'termino': None,
     'propiedades': {'skills': get_random_non_empty_subset(series),
         'configuracion_atencion': random.sample(modos, 1)[0],
         'porcentaje_actividad'  : np.random.randint(85, 90)/100,
             'atributos_series':atributos_series,
 
         }}],
-    '51': [{'inicio': '08:02:56',
-    'termino': '16:30:23',
+    '51': [{'inicio': '08:00:56',
+    'termino': None,
     'propiedades': {'skills':get_random_non_empty_subset(series),
         'configuracion_atencion': random.sample(modos, 1)[0],
         'porcentaje_actividad'  : np.random.randint(85, 90)/100,
         'atributos_series':atributos_series,
         }}]}
-hora_cierre           = '16:00:00'
+hora_cierre           = '18:00:00'
 
 reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
@@ -205,61 +209,60 @@ for hora_actual in reloj:
 
     if disponibles:= supervisor.filtrar_x_estado('disponible'):
         conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in disponibles]
+        print('iterar_escritorios_disponibles')
         supervisor.iterar_escritorios_disponibles(conectados_disponibles)
 
-    try:
-        print(hora_actual)
         
-        matcher_emision_reloj.match(hora_actual)
-    except KeyError:
-        #
-        #if not fila.empty:
-        if disponibles:= supervisor.filtrar_x_estado('disponible'):
-            #extraer las skills de los escritorios conectados que están disponibles
-            #conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in disponibles]
-            conectados_disponibles       = balancear_carga_escritorios(
-                                                                        {k: {'numero_de_atenciones':v['numero_de_atenciones'],
-                                                                            'tiempo_actual_disponible': v['tiempo_actual_disponible']} 
-                                                                        for k,v in supervisor.escritorios_ON.items() if k in disponibles}
-                                                                        )    
+    matcher_emision_reloj.match(hora_actual)
+    print(f'matcher_emision_reloj.match_emisiones.empty: {matcher_emision_reloj.match_emisiones.empty}')
     
-            print(conectados_disponibles)
-            for un_escritorio in conectados_disponibles:
+    if matcher_emision_reloj.match_emisiones.empty:
+        print("---------------------------empty")
 
-                configuracion_atencion = supervisor.escritorios_ON[un_escritorio]['configuracion_atencion']
-                #print(f"buscando cliente para {un_escritorio} con {configuracion_atencion}")
-                fila_filtrada          = fila[fila['IdSerie'].isin(supervisor.escritorios_ON[un_escritorio].get('skills', []))]#filtrar_fila_por_skills(fila, supervisor.escritorios_ON[un_escritorio])
-                #print(f"en base a las skills: {supervisor.escritorios_ON[un_escritorio].get('skills', [])}, fila_filtrada \n{fila_filtrada}")
-                if  fila_filtrada.empty:
-                        #print("No hay match entre idSeries en fila y skills del escritorio, saltar al siguiente escritorio")
-                        continue #
-                elif configuracion_atencion == "FIFO":
-                    cliente_seleccionado = FIFO(fila_filtrada)
-
-
-                    fila = remove_selected_row(fila, cliente_seleccionado)
-                    supervisor.iniciar_atencion(un_escritorio, cliente_seleccionado)
-            
-                registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])    
-        
-        
-            continue
-    
-    for _, emision in matcher_emision_reloj.match_emisiones.iterrows():
-        emision_cliente = pd.DataFrame(emision).T
-        emision_cliente['espera'] = 0
-        fila = pd.concat([fila, emision_cliente])#.reset_index(drop=True)
         if not fila.empty:
             if disponibles:= supervisor.filtrar_x_estado('disponible'):
-                #extraer las skills de los escritorios conectados que están disponibles
-                #conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in disponibles]
                 conectados_disponibles       = balancear_carga_escritorios(
                                                                             {k: {'numero_de_atenciones':v['numero_de_atenciones'],
                                                                                 'tiempo_actual_disponible': v['tiempo_actual_disponible']} 
                                                                             for k,v in supervisor.escritorios_ON.items() if k in disponibles}
                                                                             )    
         
-                print(conectados_disponibles)
+                #print(conectados_disponibles)
+                for un_escritorio in conectados_disponibles:
+
+                    configuracion_atencion = supervisor.escritorios_ON[un_escritorio]['configuracion_atencion']
+                    #print(f"buscando cliente para {un_escritorio} con {configuracion_atencion}")
+                    fila_filtrada          = fila[fila['IdSerie'].isin(supervisor.escritorios_ON[un_escritorio].get('skills', []))]#filtrar_fila_por_skills(fila, supervisor.escritorios_ON[un_escritorio])
+                    #print(f"en base a las skills: {supervisor.escritorios_ON[un_escritorio].get('skills', [])}, fila_filtrada \n{fila_filtrada}")
+                    if  fila_filtrada.empty:
+                            #print("No hay match entre idSeries en fila y skills del escritorio, saltar al siguiente escritorio")
+                            continue #
+                    elif configuracion_atencion == "FIFO":
+                        cliente_seleccionado = FIFO(fila_filtrada)
+
+
+                        fila = remove_selected_row(fila, cliente_seleccionado)
+                        supervisor.iniciar_atencion(un_escritorio, cliente_seleccionado)
+                
+                    registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])    
+        
+    
+    for _, emision in matcher_emision_reloj.match_emisiones.iterrows():
+        print("---------------------------match_emisiones TRUE")
+        emision_cliente = pd.DataFrame(emision).T
+        emision_cliente['espera'] = 0
+        fila = pd.concat([fila, emision_cliente])#
+        
+        
+        if not fila.empty:
+            if disponibles:= supervisor.filtrar_x_estado('disponible'):
+                conectados_disponibles       = balancear_carga_escritorios(
+                                                                            {k: {'numero_de_atenciones':v['numero_de_atenciones'],
+                                                                                'tiempo_actual_disponible': v['tiempo_actual_disponible']} 
+                                                                            for k,v in supervisor.escritorios_ON.items() if k in disponibles}
+                                                                            )    
+        
+                #print(conectados_disponibles)
                 for un_escritorio in conectados_disponibles:
 
                     configuracion_atencion = supervisor.escritorios_ON[un_escritorio]['configuracion_atencion']
@@ -280,8 +283,8 @@ for hora_actual in reloj:
     
         
 
- 
-registros_atenciones    
+len(registros_atenciones) , len(fila)
+    
     
 
 #%%
