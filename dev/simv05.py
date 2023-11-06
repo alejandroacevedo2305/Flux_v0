@@ -52,10 +52,9 @@ from dev.pasos_alternancia_y_prioridades_x_escri import (
 from dev.simv04 import (
     reloj_rango_horario, 
     match_emisiones_reloj)
-def update_conexion_key(original_dict, updates):    
-    for key, value in updates.items():  # Loop through the keys and values in the updates dictionary.
-        if key in original_dict:  # Check if the key from updates exists in the original dictionary.
-            original_dict[key]['conexion'] = value['conexion']
+
+            
+            
 dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
 skills   = obtener_skills(un_dia)
@@ -186,24 +185,38 @@ hora_actual = next(reloj)
 [d['conexion'] for _, d in supervisor.escritorios.items()]
 
 #%%
+def actualizar_keys_tramo(original_dict, updates):    
+    for key, value in updates.items():  # Loop through the keys and values in the updates dictionary.
+        if key in original_dict:  # Check if the key from updates exists in the original dictionary.
+            original_dict[key]['conexion'] = value['conexion']
+            original_dict[key]['skills'] = value['skills']
+            original_dict[key]['configuracion_atencion'] = value['configuracion_atencion']
+            original_dict[key]['porcentaje_actividad'] = value['porcentaje_actividad']
+            original_dict[key]['atributos_series'] = value['atributos_series']
 
 hora_actual = "11:30:00"
-conexiones = dict()
+propiedades_tramo = dict()
 for idEsc, un_escritorio in planificacion.items():
     for un_tramo in un_escritorio:
         on = hora_actual >= un_tramo['inicio'] and (lambda: 
             hora_actual <= un_tramo['termino'] if un_tramo['termino'] is not None else True)()
-        #print(f"{idEsc}: {on} {hora_actual} >= {un_tramo['inicio']} and {hora_actual} <= {un_tramo['termino']}")
+        print(f"{idEsc}: {on} {hora_actual} >= {un_tramo['inicio']} and {hora_actual} <= {un_tramo['termino']}")
         #if on:            
-        conexiones = conexiones | {idEsc: {'conexion': on}}
-update_conexion_key(supervisor.escritorios, conexiones)  
+        propiedades_tramo = propiedades_tramo | {idEsc: {'conexion': on,
+                                           'skills':un_tramo['propiedades']['skills'],
+                                           'configuracion_atencion':un_tramo['propiedades']['configuracion_atencion'],
+                                           'porcentaje_actividad':un_tramo['propiedades']['porcentaje_actividad'],
+                                           'atributos_series':un_tramo['propiedades']['atributos_series'],
+                                           }}       
+        
+actualizar_keys_tramo(supervisor.escritorios, propiedades_tramo)  
  
 escritorios_ON, escritorios_OFF = separar_por_conexion(supervisor.escritorios)
 escritorios_OFF                 = reset_escritorios_OFF(escritorios_OFF)
 
 
 
-[d['conexion'] for _, d in escritorios_ON.items()], [d['conexion'] for _, d in escritorios_OFF.items()]
+# [d['conexion'] for _, d in escritorios_ON.items()], [d['conexion'] for _, d in escritorios_OFF.items()]
 
 
 #%%
