@@ -107,7 +107,8 @@ class MisEscritorios_v04:
                                 for k, v in planificacion.items()}  # The loop iterates over each key-value pair in self.planificacion.
         
         self.escritorios_OFF                    = self.escritorios
-        self.escritorios_ON                     = {}        
+        self.escritorios_ON                     = {}
+        self.propiedades_tramos                 = []        
         
     def aplicar_planificacion(self, hora_actual, planificacion):
         
@@ -125,8 +126,10 @@ class MisEscritorios_v04:
                                                 #'duracion_pausas':        un_tramo['propiedades']['duracion_pausas'],
                                                 #'probabilidad_pausas':    un_tramo['propiedades']['probabilidad_pausas'],
                                                 'porcentaje_actividad':   un_tramo['propiedades']['porcentaje_actividad'],                                                 
-                                                }}       
-                
+                                                }}
+                if on_off:
+                    break       
+        self.propiedades_tramos.append(propiedades_tramo)        
         actualizar_keys_tramo(self.escritorios_ON, propiedades_tramo)  #se actualizan las propiedades del tramo.TO-DO: FALTAN LOS PASOS Y PRIORIDADES.
         actualizar_keys_tramo(self.escritorios_OFF, propiedades_tramo)  #se actualizan las propiedades del tramo.TO-DO: FALTAN LOS PASOS Y PRIORIDADES.
 
@@ -325,7 +328,11 @@ planificacion = {
             'atributos_series':atributos_series,
             }}]
         }
-hora_cierre               = '17:00:00'    
+#%%
+import time
+start_time = time.time()
+
+hora_cierre           = '20:00:00'    
 reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
 matcher_emision_reloj = match_emisiones_reloj(un_dia)
@@ -338,24 +345,25 @@ fecha                = un_dia.FH_Emi.iloc[0].date()
 registros_atenciones = pd.DataFrame()
 fila                 = pd.DataFrame()
 # pd.Timestamp(f"{fecha} {hora_actual}")
+i=0
 for hora_actual in reloj:
-    print(hora_actual)
+    #print(hora_actual)
     supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion)
-    print(supervisor.escritorios_ON.keys(), supervisor.escritorios_OFF.keys())
-    print(f"%%%%%%%%%%% disponible{supervisor.filtrar_x_estado('disponible')}")
-    print(f"%%%%%%%%%%% atención {supervisor.filtrar_x_estado('atención')} pausa {supervisor.filtrar_x_estado('pausa')}")
+    #print(f"ON {supervisor.escritorios_ON.keys()}, OFF {supervisor.escritorios_OFF.keys()}")
+    #print(f"%%%%%%%%%%% disponible{supervisor.filtrar_x_estado('disponible')}")
+    #print(f"%%%%%%%%%%% atención {supervisor.filtrar_x_estado('atención')} pausa {supervisor.filtrar_x_estado('pausa')}")
     
     if (supervisor.filtrar_x_estado('atención') or  supervisor.filtrar_x_estado('pausa')):
         en_atencion            = supervisor.filtrar_x_estado('atención') or []
         en_pausa               = supervisor.filtrar_x_estado('pausa') or []
         escritorios_bloqueados = set(en_atencion + en_pausa)            
         escritorios_bloqueados_conectados    = [k for k,v in supervisor.escritorios_ON.items() if k in escritorios_bloqueados]
-        print("iterar_escritorios_bloqueados")        
+        #print("iterar_escritorios_bloqueados")        
         supervisor.iterar_escritorios_bloqueados(escritorios_bloqueados_conectados)
 
     if disponibles:= supervisor.filtrar_x_estado('disponible'):
         conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in disponibles]
-        print('iterar_escritorios_disponibles')
+        #print('iterar_escritorios_disponibles')
         supervisor.iterar_escritorios_disponibles(conectados_disponibles)
 
     matcher_emision_reloj.match(hora_actual)
@@ -372,7 +380,7 @@ for hora_actual in reloj:
                                                                             'tiempo_actual_disponible': v['tiempo_actual_disponible']} 
                                                                         for k,v in supervisor.escritorios_ON.items() if k in disponibles}
                                                                         )
-            print(f"conectados_disponibles: {conectados_disponibles}")
+            #print(f"conectados_disponibles: {conectados_disponibles}")
             for un_escritorio in conectados_disponibles:
                 configuracion_atencion = supervisor.escritorios_ON[un_escritorio]['configuracion_atencion']
                 #print(f"configuracion_atencion {configuracion_atencion}")
@@ -386,10 +394,18 @@ for hora_actual in reloj:
                      fila = remove_selected_row(fila, cliente_seleccionado)
                      supervisor.iniciar_atencion(un_escritorio, cliente_seleccionado)            
                      registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])
-    print(f"-----------------disponible{supervisor.filtrar_x_estado('disponible')}")
-    print(f"----------------atención {supervisor.filtrar_x_estado('atención')} pausa {supervisor.filtrar_x_estado('pausa')}") 
-    fila['espera'] += 60
-    #print(fila)  
-    
-        
-len(registros_atenciones), len(fila)
+    #print(f"-----------------disponible{supervisor.filtrar_x_estado('disponible')}")
+    #print(f"----------------atención {supervisor.filtrar_x_estado('atención')} pausa {supervisor.filtrar_x_estado('pausa')}") 
+    fila['espera'] += 1
+    i+=1
+print(
+   len(registros_atenciones), len(fila) 
+)        
+
+
+
+end_time = time.time()
+elapsed_time = end_time - start_time
+print(f"el simulador demoró {elapsed_time}  para simular desde las {str(un_dia.FH_Emi.min().time())} hasta las {hora_cierre} ({i/60} horas).")
+#%%
+supervisor.propiedades_tramos[0]['0']
