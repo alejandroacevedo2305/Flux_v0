@@ -328,11 +328,14 @@ planificacion = {
             'atributos_series':atributos_series,
             }}]
         }
-#%%
+
+# planificacion['0'][0]['propiedades']['atributos_series'][0]['prioridad']
+# planificacion['0'][0]['propiedades']['atributos_series'][0]['pasos']
+
 import time
 start_time = time.time()
 
-hora_cierre           = '20:00:00'    
+hora_cierre           = '23:00:00'    
 reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
 matcher_emision_reloj = match_emisiones_reloj(un_dia)
@@ -341,6 +344,9 @@ supervisor            = MisEscritorios_v04(inicio_tramo      = un_dia['FH_Emi'].
                                     fin_tramo                = un_dia['FH_Emi'].max(),
                                     planificacion            = planificacion,
                                     niveles_servicio_x_serie = niveles_servicio_x_serie)
+
+#supervisor.escritorios['0']
+
 fecha                = un_dia.FH_Emi.iloc[0].date()
 registros_atenciones = pd.DataFrame()
 fila                 = pd.DataFrame()
@@ -407,5 +413,8 @@ print(
 end_time = time.time()
 elapsed_time = end_time - start_time
 print(f"el simulador demoró {elapsed_time}  para simular desde las {str(un_dia.FH_Emi.min().time())} hasta las {hora_cierre} ({i/60} horas).")
+
+
+
 #%%
 supervisor.propiedades_tramos[0]['0']
