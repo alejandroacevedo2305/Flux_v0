@@ -224,7 +224,7 @@ dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
 skills   = obtener_skills(un_dia)
 series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-modos    = ['FIFO']#['Rebalse','Alternancia', 'Rebalse']
+modos    = ['FIFO','Alternancia', 'Rebalse']#['Rebalse','Alternancia', 'Rebalse']
 atributos_series = atributos_x_serie(ids_series=series, 
                                     sla_porcen_user=None, 
                                     sla_corte_user=None, 
@@ -238,6 +238,7 @@ niveles_servicio_x_serie = {atr_dict['serie']:
 prioridades =       {atr_dict['serie']:
                         atr_dict['prioridad']
                         for atr_dict in atributos_series}
+
 planificacion = {
         '0': [{'inicio': '08:00:11',
         'termino': "10:30:00",
@@ -331,7 +332,7 @@ planificacion = {
 
 # planificacion['0'][0]['propiedades']['atributos_series'][0]['prioridad']
 # planificacion['0'][0]['propiedades']['atributos_series'][0]['pasos']
-
+#%%
 import time
 start_time = time.time()
 
@@ -345,7 +346,8 @@ supervisor            = MisEscritorios_v04(inicio_tramo      = un_dia['FH_Emi'].
                                     planificacion            = planificacion,
                                     niveles_servicio_x_serie = niveles_servicio_x_serie)
 
-#supervisor.escritorios['0']
+
+
 
 fecha                = un_dia.FH_Emi.iloc[0].date()
 registros_atenciones = pd.DataFrame()
@@ -393,13 +395,19 @@ for hora_actual in reloj:
                 fila_filtrada          = fila[fila['IdSerie'].isin(supervisor.escritorios_ON[un_escritorio].get('skills', []))]#filtrar_fila_por_skills(fila, supervisor.escritorios_ON[un_escritorio])
                 #print(f"fila_filtrada: {fila_filtrada}")
                 if  fila_filtrada.empty:
-                        continue
+                    continue
                 elif configuracion_atencion == "FIFO":
-                     cliente_seleccionado = FIFO(fila_filtrada)
-                     #print(f"cliente_seleccionado: {cliente_seleccionado}")
-                     fila = remove_selected_row(fila, cliente_seleccionado)
-                     supervisor.iniciar_atencion(un_escritorio, cliente_seleccionado)            
-                     registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])
+                    cliente_seleccionado = FIFO(fila_filtrada)
+                    
+                elif configuracion_atencion == "Rebalse":
+                    cliente_seleccionado = extract_highest_priority_and_earliest_time_row(fila_filtrada, supervisor.escritorios_ON[un_escritorio].get('prioridades'))
+                    
+                elif configuracion_atencion == "Alternancia":
+                    cliente_seleccionado = supervisor.escritorios_ON[un_escritorio]['pasos_alternancia'].buscar_cliente(fila_filtrada)
+                
+                fila = remove_selected_row(fila, cliente_seleccionado)
+                supervisor.iniciar_atencion(un_escritorio, cliente_seleccionado)            
+                registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])  
     #print(f"-----------------disponible{supervisor.filtrar_x_estado('disponible')}")
     #print(f"----------------atención {supervisor.filtrar_x_estado('atención')} pausa {supervisor.filtrar_x_estado('pausa')}") 
     fila['espera'] += 1
