@@ -220,122 +220,6 @@ class MisEscritorios_v04:
                 self.escritorios_ON[escri_dispon]['tiempo_actual_disponible'] = tiempo_disponible
 
 
-
-                
-dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
-un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-skills   = obtener_skills(un_dia)
-series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-modos    = ['FIFO']#['Rebalse','Alternancia', 'Rebalse']
-atributos_series = atributos_x_serie(ids_series=series, 
-                                    sla_porcen_user=None, 
-                                    sla_corte_user=None, 
-                                    pasos_user=None, 
-                                    prioridades_user=None)
-
-niveles_servicio_x_serie = {atr_dict['serie']:
-                            (atr_dict['sla_porcen']/100, atr_dict['sla_corte']/60) 
-                            for atr_dict in atributos_series}
-
-prioridades =       {atr_dict['serie']:
-                        atr_dict['prioridad']
-                        for atr_dict in atributos_series}
-planificacion = {
-        '0': [{'inicio': '08:00:11',
-        'termino': "10:30:00",
-        'propiedades': {'skills' : get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                'atributos_series':atributos_series,
-                
-            }},
-              {'inicio': '11:33:00',
-        'termino': "12:40:00",
-        'propiedades': {'skills' : get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                'atributos_series':atributos_series,
-                
-            }}
-              ],
-        
-        '1': [{'inicio': '09:00:11',
-        'termino': None,
-        'propiedades': {'skills': get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                'atributos_series':atributos_series,
-
-            }}],
-        '2': [{'inicio': '10:00:11',
-        'termino': None,
-        'propiedades': {'skills': get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                'atributos_series':atributos_series,
-
-            }}],
-        '3': [{'inicio': '12:00:03',
-        'termino': None,
-        'propiedades': {'skills': get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                'atributos_series':atributos_series,
-
-            }}],
-        '4': [{'inicio': '08:00:03',
-        'termino': None,
-        'propiedades': {'skills': get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                'atributos_series':atributos_series,
-
-            }}],
-        '5': [{'inicio': '08:00:03',
-        'termino': None,
-        'propiedades': {'skills': get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                'atributos_series':atributos_series,
-
-            }}],
-        '6': [{'inicio': '08:00:56',
-        'termino': None,
-        'propiedades': {'skills': get_random_non_empty_subset(series), 
-            'configuracion_atencion':random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                'atributos_series':atributos_series,
-
-            }}],
-        '7': [{'inicio': '08:00:56',
-        'termino': None,
-        'propiedades': {'skills': get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                'atributos_series':atributos_series,
-
-            }}],
-        '8': [{'inicio': '10:00:56',
-        'termino': '11:00:00',
-        'propiedades': {'skills':get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-            'atributos_series':atributos_series,
-            }},
-               {'inicio': '12:00:00',
-        'termino': '16:00:00',
-        'propiedades': {'skills':get_random_non_empty_subset(series),
-            'configuracion_atencion': random.sample(modos, 1)[0],
-            'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-            'atributos_series':atributos_series,
-            }}]
-        }
-
-import time
-start_time = time.time()
-
-hora_cierre           = '23:00:00'    
-
 def simv04(un_dia, hora_cierre, planificacion, niveles_servicio_x_serie):
     
     reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
@@ -392,13 +276,129 @@ def simv04(un_dia, hora_cierre, planificacion, niveles_servicio_x_serie):
         fila['espera'] += 1
         i+=1
     return registros_atenciones, fila, i
+                
+# dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
+# un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+# skills   = obtener_skills(un_dia)
+# series   = sorted(list({val for sublist in skills.values() for val in sublist}))
+# modos    = ['FIFO']#['Rebalse','Alternancia', 'Rebalse']
+# atributos_series = atributos_x_serie(ids_series=series, 
+#                                     sla_porcen_user=None, 
+#                                     sla_corte_user=None, 
+#                                     pasos_user=None, 
+#                                     prioridades_user=None)
+
+# niveles_servicio_x_serie = {atr_dict['serie']:
+#                             (atr_dict['sla_porcen']/100, atr_dict['sla_corte']/60) 
+#                             for atr_dict in atributos_series}
+
+# prioridades =       {atr_dict['serie']:
+#                         atr_dict['prioridad']
+#                         for atr_dict in atributos_series}
+# planificacion = {
+#         '0': [{'inicio': '08:00:11',
+#         'termino': "10:30:00",
+#         'propiedades': {'skills' : get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#                 'atributos_series':atributos_series,
+                
+#             }},
+#               {'inicio': '11:33:00',
+#         'termino': "12:40:00",
+#         'propiedades': {'skills' : get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#                 'atributos_series':atributos_series,
+                
+#             }}
+#               ],
+        
+#         '1': [{'inicio': '09:00:11',
+#         'termino': None,
+#         'propiedades': {'skills': get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#                 'atributos_series':atributos_series,
+
+#             }}],
+#         '2': [{'inicio': '10:00:11',
+#         'termino': None,
+#         'propiedades': {'skills': get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#                 'atributos_series':atributos_series,
+
+#             }}],
+#         '3': [{'inicio': '12:00:03',
+#         'termino': None,
+#         'propiedades': {'skills': get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#                 'atributos_series':atributos_series,
+
+#             }}],
+#         '4': [{'inicio': '08:00:03',
+#         'termino': None,
+#         'propiedades': {'skills': get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#                 'atributos_series':atributos_series,
+
+#             }}],
+#         '5': [{'inicio': '08:00:03',
+#         'termino': None,
+#         'propiedades': {'skills': get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#                 'atributos_series':atributos_series,
+
+#             }}],
+#         '6': [{'inicio': '08:00:56',
+#         'termino': None,
+#         'propiedades': {'skills': get_random_non_empty_subset(series), 
+#             'configuracion_atencion':random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#                 'atributos_series':atributos_series,
+
+#             }}],
+#         '7': [{'inicio': '08:00:56',
+#         'termino': None,
+#         'propiedades': {'skills': get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#                 'atributos_series':atributos_series,
+
+#             }}],
+#         '8': [{'inicio': '10:00:56',
+#         'termino': '11:00:00',
+#         'propiedades': {'skills':get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#             'atributos_series':atributos_series,
+#             }},
+#                {'inicio': '12:00:00',
+#         'termino': '16:00:00',
+#         'propiedades': {'skills':get_random_non_empty_subset(series),
+#             'configuracion_atencion': random.sample(modos, 1)[0],
+#             'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+#             'atributos_series':atributos_series,
+#             }}]
+#         }
+
+
+
+
     
-    
-registros_atenciones, fila, n_minutos = simv04(un_dia, hora_cierre, planificacion, niveles_servicio_x_serie)   
-print(f"atendidos {len(registros_atenciones) }, en espera { len(fila) }")        
-end_time = time.time()
-elapsed_time = end_time - start_time
-print(f"el simulador demoró {elapsed_time} segundos. Simulación desde las {str(un_dia.FH_Emi.min().time())} hasta las {hora_cierre} ({n_minutos/60} horas simuladas).")
+# import time
+# start_time = time.time()
+
+# hora_cierre           = '23:00:00'    
+# registros_atenciones, fila, n_minutos = simv04(un_dia, hora_cierre, planificacion, niveles_servicio_x_serie)   
+# print(f"atendidos {len(registros_atenciones) }, en espera { len(fila) }")        
+# end_time = time.time()
+# elapsed_time = end_time - start_time
+# print(f"el simulador demoró {elapsed_time} segundos. Simulación desde las {str(un_dia.FH_Emi.min().time())} hasta las {hora_cierre} ({n_minutos/60} horas simuladas).")
 
 
 #%%
