@@ -7,7 +7,7 @@ import optuna
 from scipy.stats.mstats import gmean
 import random
 
-def sla_x_serie(df, interval='1H', corte=45, factor_conversion_T_esp:int=60):
+def sla_x_serie(df, interval='1H', corte=45, factor_conversion_T_esp:int=1):
     df = df.reset_index(drop=False)
     df['FH_Emi'] = pd.to_datetime(df['FH_Emi'])  # Convert to datetime
     df['IdSerie'] = df['IdSerie'].astype(str)  # Ensuring IdSerie is string

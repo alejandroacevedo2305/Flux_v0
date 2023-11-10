@@ -47,7 +47,7 @@ def atributos_x_serie(ids_series, sla_porcen_user=None, sla_corte_user=None, pas
 
     att_x_s = atributos_de_series(ids_series = ids_series)
 
-    return att_x_s.atributo(sla_porcen_user, 'sla_porcen', 50, 80).atributo(
+    return att_x_s.atributo(sla_porcen_user, 'sla_porcen', 70, 85).atributo(
             sla_corte_user, 'sla_corte', 10*60, 30*60).atributo(
                 pasos_user, 'pasos',1,5).prioridades(prioridades_user).atributos_x_series
             

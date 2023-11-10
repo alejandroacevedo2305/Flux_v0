@@ -28,7 +28,7 @@ from src.optuna_utils import (
     partition_dataframe_by_time_intervals,  
     plan_unico
     )
-from dev.MisEscritorios_v04 import simv04
+from dev.MisEscritorios_v04_simv04 import simv04
 
 def get_permutations_array(length):
     # Generate the list based on the input length
@@ -54,7 +54,7 @@ niveles_servicio_x_serie = {atr_dict['serie']:
 pesos_x_serie           =       {atr_dict['serie']:
                                 atr_dict['prioridad']
                                  for atr_dict in atributos_series}
-
+import math
 def objective(trial, 
     un_dia : pd.DataFrame,  # IdOficina  IdSerie  IdEsc, FH_Emi, FH_Llama  -- Deberia llamarse 'un_tramo'
     subsets: list, # [(5,), (10,), (11,), (12,), (14,), (17,), (5, 10), (5, 11), (5, 12), (5, 14), (5, 17), (10, 11),  <...> 14, 17), (5, 10, 12, 14, 17), (5, 11, 12, 14, 17), (10, 11, 12, 14, 17), (5, 10, 11, 12, 14, 17)]
@@ -131,19 +131,31 @@ def objective(trial,
         registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
         pocentajes_SLA        = [int(100*v[0])for k,v in niveles_servicio_x_serie.items()]
         mins_de_corte_SLA     = [int(v[1])for k,v in niveles_servicio_x_serie.items()]        
-        df_pairs              = [(sla_x_serie(r_x_s, '1H', corte = corte, factor_conversion_T_esp=1), s) 
-                                     for r_x_s, s, corte in zip(registros_x_serie, series, mins_de_corte_SLA)]
+        df_pairs              = [(sla_x_serie(r_x_s, '1H', corte = corte), s) 
+                                 for r_x_s, s, corte in zip(registros_x_serie, series, mins_de_corte_SLA)]
         porcentajes_reales    = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
-        dif_cuadratica        = {k:(v-p)**2 for ((k,v),p) in zip(porcentajes_reales.items(),pocentajes_SLA)}
+        
+        
+        assert not any(math.isnan(x) for x in [v for k, v in porcentajes_reales.items()]), "List contains at least one nan"
+
+        
+        print(f"------------porcentajes_reales {[v for k, v in porcentajes_reales.items()]}")
+        print(f"----------------pocentajes_SLA :{pocentajes_SLA}")
+        #print(f"sla_real: {sla_real} - sla_teorico {sla_teorico}")
+        dif_cuadratica        = {k:((sla_real-sla_teorico)**2 if sla_real <= sla_teorico else 0 ) 
+                                 for ((k,sla_real),sla_teorico) in zip(porcentajes_reales.items(),pocentajes_SLA)}
         #Objetivos:    
         #La mayor prioridad es el entero más chico    
         maximizar_SLAs        = tuple(np.array(tuple(pesos_x_serie.values()))*np.array(tuple(dif_cuadratica.values())))#Ponderado por prioridad
         minimizar_escritorios = (sum(bool_vector),)
         minimizar_skills      = (extract_skills_length(planificacion),)
         
+        
+        assert not any(math.isnan(x) for x in maximizar_SLAs), "al menos un SLA NaN"
+        
         if optimizar == "SLA":
             
-            print(f"maximizar_SLAs {maximizar_SLAs}")
+            print(f"--OBJ-- maximizar_SLAs           {maximizar_SLAs}")
             return  maximizar_SLAs
         
         elif optimizar == "SLA + escritorios":
@@ -166,10 +178,11 @@ def objective(trial,
   
 
 skills       = obtener_skills(un_dia)
+series       = sorted(list({val for sublist in skills.values() for val in sublist}))
 subsets      = non_empty_subsets(sorted(list({val for sublist in skills.values() for val in sublist})))
 optimizar    ="SLA" # "SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
 n_trials     = 1
-hora_cierre  = '12:00:00'  
+hora_cierre  = '20:00:00'  
 n_objs       = int(
                         len(series)
                         if optimizar == "SLA"
@@ -180,28 +193,29 @@ n_objs       = int(
                         else None
                         )
 
-
+start_time = time.time()
 IA      = optuna.multi_objective.create_study(directions= n_objs*['minimize'])
 IA.optimize(lambda trial: objective(trial, optimizar                = optimizar,
                                            un_dia                   = un_dia,
                                            subsets                  = subsets,
                                            hora_cierre              = hora_cierre,
                                            pesos_x_serie            = pesos_x_serie,
-                                           minimo_escritorios       = 3,
-                                           maximo_escritorios       = 15
+                                           minimo_escritorios       = 9,
+                                           maximo_escritorios       = 13
                                            ),
-                   n_trials  = 10, #int(1e4),  # Make sure this is an integer
+                   n_trials  = 1000, #int(1e4),  # Make sure this is an integer
                    #timeout   = 2*3600,   #  hours
                    )  
-planificacion_optuna = [trial for trial in IA.trials if trial.state == optuna.trial.TrialState.COMPLETE][0].user_attrs.get('planificacion')
-planificacion_optuna
+print(f"{(time.time() - start_time)/60}")
+
 #%%
+planificacion_optuna = [trial for trial in IA.trials if trial.state == optuna.trial.TrialState.COMPLETE][-1].user_attrs.get('planificacion')
 
 
 start_time = time.time()
 hora_cierre           = '23:00:00'  
 
-registros_atenciones, fila, n_minutos = simv04(un_dia, "14:00:00", planificacion_optuna, niveles_servicio_x_serie)   
+registros_atenciones, fila, n_minutos = simv04(un_dia, hora_cierre, planificacion_optuna, niveles_servicio_x_serie)   
 print(f"atendidos {len(registros_atenciones) }, en espera { len(fila) }")        
 end_time = time.time()
 elapsed_time = end_time - start_time
@@ -211,9 +225,11 @@ registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int)
 registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
 pocentajes_SLA        = [int(100*v[0])for k,v in niveles_servicio_x_serie.items()]
 mins_de_corte_SLA     = [int(v[1])for k,v in niveles_servicio_x_serie.items()]        
-df_pairs              = [(sla_x_serie(r_x_s, '1H', corte = corte, factor_conversion_T_esp=1), s) 
+df_pairs              = [(sla_x_serie(r_x_s, '1H', corte = corte), s) 
                             for r_x_s, s, corte in zip(registros_x_serie, series, mins_de_corte_SLA)]
-porcentajes_reales    = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
-dif_cuadratica        = {k:(v-p)**2 for ((k,v),p) in zip(porcentajes_reales.items(),pocentajes_SLA)}
+
+df_pairs
+# porcentajes_reales    = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
+# dif_cuadratica        = {k:(v-p)**2 for ((k,v),p) in zip(porcentajes_reales.items(),pocentajes_SLA)}
 #Objetivos:    
 #La mayor prioridad es el entero más chico    
