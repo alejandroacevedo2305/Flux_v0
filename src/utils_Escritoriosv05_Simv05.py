@@ -4,13 +4,73 @@ from copy import deepcopy
 import pandas as pd
 import random
 from datetime import datetime
+def remove_selected_row(df, selected_row):
+    """
+    Removes the specified row from the DataFrame.
+    """
+    # If DataFrame or selected_row is None, return original DataFrame
+    if df is None or selected_row is None:
+        return df
+    
+    # Get the index of the row to be removed
+    row_index = selected_row.name
+    
+    # Remove the row using the 'drop' method
+    updated_df = df.drop(index=row_index)
+    
+    return updated_df
+def FIFO(df):
+    if df is None or df.empty:
+        return None   
+    min_time = df['FH_Emi'].min()
+    earliest_rows = df[df['FH_Emi'] == min_time]
+    if len(earliest_rows) > 1:
+        selected_row = earliest_rows.sample(n=1)
+    else:
+        selected_row = earliest_rows   
+    return selected_row.iloc[0]
+
+def balancear_carga_escritorios(desk_dict):
+    sorted_desks = sorted(desk_dict.keys(), key=lambda x: (desk_dict[x]['numero_de_atenciones'], -desk_dict[x]['tiempo_actual_disponible']))
+    
+    return sorted_desks
+def generate_integer(min_val:int=1, avg_val:int=4, max_val:int=47, probabilidad_pausas:float=.5):
+    # Validate probabilidad_pausas
+    if probabilidad_pausas < 0 or probabilidad_pausas > 1:
+        return -1
+        # Validate min_val and max_val
+    if min_val > max_val:
+        return -1
+        # Validate avg_val
+    if not min_val <= avg_val <= max_val:
+        return -1
+        # Initialize weights with 1s
+    weights = [1] * (max_val - min_val + 1)
+        # Calculate the distance of each possible value from avg_val
+    distance_from_avg = [abs(avg_val - i) for i in range(min_val, max_val + 1)]
+        # Calculate the total distance for normalization
+    total_distance = sum(distance_from_avg)
+        # Update weights based on distance from avg_val
+    if total_distance == 0:
+        weights = [1] * len(weights)
+    else:
+        weights = [(total_distance - d) / total_distance for d in distance_from_avg]
+        # Generate a random integer based on weighted probabilities
+    generated_integer = random.choices(range(min_val, max_val + 1), weights=weights, k=1)[0]
+        # Determine whether to return zero based on probabilidad_pausas
+    if random.random() > probabilidad_pausas:
+        return 0
+    
+    return generated_integer
+
+
 def actualizar_keys_tramo(original_dict, updates):    
     for key, value in updates.items():  # Loop through the keys and values in the updates dictionary.
         if key in original_dict:  # Check if the key from updates exists in the original dictionary.
             original_dict[key]['conexion']               = value['conexion']
             original_dict[key]['skills']                 = value['skills']
             original_dict[key]['configuracion_atencion'] = value['configuracion_atencion']
-            #original_dict[key]['atributos_series']       = value['atributos_series']            
+            original_dict[key]['pasos_alternancia']       = value['pasos_alternancia']            
             original_dict[key]['prioridades']           = value['prioridades']
             original_dict[key]['pasos']                 = value['pasos']
             original_dict[key]['porcentaje_actividad']   = value['porcentaje_actividad']
@@ -21,9 +81,6 @@ def actualizar_keys_tramo(original_dict, updates):
             original_dict[key]['porcentaje_actividad']                = value['porcentaje_actividad']
             original_dict[key]['duracion_inactividad']                = value['duracion_inactividad']
             original_dict[key]['contador_inactividad']                = value['contador_inactividad']
-
-
-
 
 
 def separar_por_conexion(original_dict):  
@@ -95,23 +152,22 @@ def one_cycle_iterator(series, start_pos):
     part_two = series[:start_pos]
     complete_cycle = pd.concat([part_one, part_two])
     return iter(complete_cycle)
-
-def generar_pasos_para_alternancia_v02(atributos_series):
-
-    return create_multiindex_df({atr_dict['serie']:
-                        {'porcentaje' :atr_dict['sla_porcen'], 
-                        'espera'      :atr_dict['sla_corte']/60, 
-                        'prioridad'   :atr_dict['prioridad'],
-                        'pasos'       :atr_dict['pasos']}
-                        for atr_dict in atributos_series}).reset_index(drop=False)   
-
-class pasos_alternancia_v02():
-    def __init__(self, atributos_series, skills):
+class pasos_alternancia_v03():
+    def __init__(self, prioridades, pasos):
         
-        self.pasos             = generar_pasos_para_alternancia_v02(atributos_series)
-        self.pasos             = self.pasos[self.pasos['serie'].isin(skills)].reset_index(drop=True)
+        assert prioridades.keys() == pasos.keys()
+
+        dict1       = {k: {'prioridad': v} for k,v in prioridades.items()}
+        dict2       = {k: {'pasos': v} for k,v in pasos.items()}
+        merged_dict = {}
+        for key in dict1:
+            if key in dict2:
+                merged_dict[key] = {**dict1[key], **dict2[key]}
+        self.pasos             = create_multiindex_df(merged_dict).reset_index(drop=False)
         self.pasos['posicion'] = self.pasos.index
-        self.iterador_posicion = itertools.cycle(self.pasos.posicion)                   
+        self.iterador_posicion = itertools.cycle(self.pasos.posicion)
+        
+                           
     def buscar_cliente(self, fila_filtrada):        
         self.posicion_actual        = self.pasos.iloc[next(self.iterador_posicion)]
         serie_en_la_posicion_actual = self.posicion_actual.serie
@@ -130,20 +186,6 @@ class pasos_alternancia_v02():
             else:
                 raise ValueError(
                 "Las series del escritorio no coinciden con la serie del cliente. No se puede atender. ESTO NO DE DEBERIA PASAR, EL FILTRO TIENE QUE ESTAR FUERA DEL OBJETO.")
-
-
-def poner_pasos_alternancia_v02(escritorios: dict, class_to_instantiate):
-    """ 
-    ejemplo:
-        self.escritorios_ON  = poner_pasos_alternancia_v02(self.escritorios_ON, pasos_alternancia_v02)
-    """
-    for key, value in escritorios.items():
-        # Check if 'configuracion_atencion' is 'Alternancia'
-        if value.get('configuracion_atencion') == 'Alternancia':
-            # Instantiate the class and assign it to 'pasos_alternancia'
-            value['pasos_alternancia'] = class_to_instantiate(atributos_series=escritorios[key]['atributos_series'] , skills = escritorios[key]['skills'])
-
-    return escritorios
 
 from collections import defaultdict
 import numpy as np
@@ -347,25 +389,33 @@ def generar_planificacion(un_dia):
                             (atr_dict['sla_porcen']/100, atr_dict['sla_corte']/60) 
                             for atr_dict in atributos_series}
     planificacion = {
-            '0': [{'inicio': '08:00:11',
-            'termino': "10:30:00",
-            'propiedades': {'skills' : get_random_non_empty_subset(series),
-                'configuracion_atencion': random.sample(modos, 1)[0],
-                'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                    'atributos_series':atributos_series,
+            '8': [{'inicio': '08:08:08',
+                  'termino': "09:38:08",
+              'propiedades': {'skills' : get_random_non_empty_subset(series),
+   'configuracion_atencion': random.sample(modos, 1)[0],
+   'porcentaje_actividad'  : int(88)/100,
+         'atributos_series': atributos_series,
                     
                 }},
-                {'inicio': '11:33:00',
-            'termino': "12:40:00",
+                {'inicio': '18:08:08',
+                'termino': None,
             'propiedades': {'skills' : get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
-                'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+                'porcentaje_actividad'  : int(88)/100,
                     'atributos_series':atributos_series,
                     
                 }}
                 ],
             
-            '1': [{'inicio': '09:00:11',
+            '9': [{'inicio': '09:09:09',
+            'termino': None,
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  :  int(99)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            '10': [{'inicio': '10:10:10',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
@@ -373,7 +423,15 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '2': [{'inicio': '10:00:11',
+            '11': [{'inicio': '11:11:11',
+            'termino': '13:11:11',
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  : np.random.randint(85, 90)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            '12': [{'inicio': '12:12:12',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
@@ -381,7 +439,7 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '3': [{'inicio': '12:00:03',
+            '13': [{'inicio': '13:13:13',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
@@ -389,23 +447,7 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '4': [{'inicio': '08:00:03',
-            'termino': None,
-            'propiedades': {'skills': get_random_non_empty_subset(series),
-                'configuracion_atencion': random.sample(modos, 1)[0],
-                'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                    'atributos_series':atributos_series,
-
-                }}],
-            '5': [{'inicio': '08:00:03',
-            'termino': None,
-            'propiedades': {'skills': get_random_non_empty_subset(series),
-                'configuracion_atencion': random.sample(modos, 1)[0],
-                'porcentaje_actividad'  : np.random.randint(85, 90)/100,
-                    'atributos_series':atributos_series,
-
-                }}],
-            '6': [{'inicio': '08:00:56',
+            '14': [{'inicio': '14:14:14',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series), 
                 'configuracion_atencion':random.sample(modos, 1)[0],
@@ -413,7 +455,7 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '7': [{'inicio': '08:00:56',
+            '15': [{'inicio': '15:15:15',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
@@ -421,15 +463,16 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '8': [{'inicio': '10:00:56',
-            'termino': '11:00:00',
+            '14': [{'inicio': '08:14:14',
+            'termino': '11:14:14',
             'propiedades': {'skills':get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
                 'porcentaje_actividad'  : np.random.randint(85, 90)/100,
                 'atributos_series':atributos_series,
                 }},
-                {'inicio': '12:00:00',
-            'termino': '16:00:00',
+               {
+            'inicio':  '18:08:08',
+            'termino': '19:14:14',
             'propiedades': {'skills':get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
                 'porcentaje_actividad'  : np.random.randint(85, 90)/100,
