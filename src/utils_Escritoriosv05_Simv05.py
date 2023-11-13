@@ -4,6 +4,16 @@ from copy import deepcopy
 import pandas as pd
 import random
 from datetime import datetime
+def extract_highest_priority_and_earliest_time_row(df, priorities):
+    df['Priority'] = df['IdSerie'].map(priorities)
+    
+    # Sort the DataFrame first based on the Priority and then on the 'FH_Emi' column
+    df_sorted = df.sort_values(by=['Priority', 'FH_Emi'], ascending=[True, True])
+    
+    # Get the row with the minimum priority value (highest priority) and earliest time
+    df_highest_priority_and_earliest_time = df_sorted.iloc[[0]]
+    
+    return df_highest_priority_and_earliest_time.iloc[0,]  
 def remove_selected_row(df, selected_row):
     """
     Removes the specified row from the DataFrame.
