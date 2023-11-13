@@ -4,16 +4,20 @@ from copy import deepcopy
 import pandas as pd
 import random
 from datetime import datetime
+
 def extract_highest_priority_and_earliest_time_row(df, priorities):
-    df['Priority'] = df['IdSerie'].map(priorities)
+    # Create a copy of the DataFrame to avoid modifying the original unintentionally
+    df_copy = df.copy()
+
+    # Set the 'Priority' column
+    df_copy['Priority'] = df_copy['IdSerie'].map(priorities)
     
     # Sort the DataFrame first based on the Priority and then on the 'FH_Emi' column
-    df_sorted = df.sort_values(by=['Priority', 'FH_Emi'], ascending=[True, True])
-    
-    # Get the row with the minimum priority value (highest priority) and earliest time
-    df_highest_priority_and_earliest_time = df_sorted.iloc[[0]]
-    
-    return df_highest_priority_and_earliest_time.iloc[0,]  
+    df_sorted = df_copy.sort_values(by=['Priority', 'FH_Emi'], ascending=[True, True])
+
+    return df_sorted.iloc[0]
+
+
 def remove_selected_row(df, selected_row):
     """
     Removes the specified row from the DataFrame.
@@ -385,10 +389,10 @@ def get_random_non_empty_subset(lst):
     # Step 3: Randomly select 'subset_size' unique elements from the list
     return random.sample(lst, subset_size)
 
-def generar_planificacion(un_dia):
+def generar_planificacion(un_dia,  modos: list    = ['FIFO','Alternancia', 'Rebalse']):
     skills   = obtener_skills(un_dia)
     series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-    modos    = ['FIFO','Alternancia', 'Rebalse']
+    #modos    = ['FIFO','Alternancia', 'Rebalse']
 
     atributos_series = atributos_x_serie(ids_series=series, 
                                         sla_porcen_user=None, 
@@ -399,6 +403,83 @@ def generar_planificacion(un_dia):
                             (atr_dict['sla_porcen']/100, atr_dict['sla_corte']/60) 
                             for atr_dict in atributos_series}
     planificacion = {
+        
+            '0': [{'inicio': '08:00:00',
+            'termino': None,
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  :  int(99)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            
+            '1': [{'inicio': '08:00:00',
+            'termino': None,
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  :  int(99)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            
+            
+            '2': [{'inicio': '08:00:00',
+            'termino': None,
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  :  int(99)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            
+            '3': [{'inicio': '08:00:00',
+            'termino': None,
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  :  int(99)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            
+            
+            '4': [{'inicio': '08:00:00',
+            'termino': None,
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  :  int(99)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            
+            '5': [{'inicio': '08:00:00',
+            'termino': None,
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  :  int(99)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            
+            
+            
+            '6': [{'inicio': '08:00:00',
+            'termino': None,
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  :  int(99)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            
+            '7': [{'inicio': '08:00:00',
+            'termino': None,
+            'propiedades': {'skills': get_random_non_empty_subset(series),
+                'configuracion_atencion': random.sample(modos, 1)[0],
+                'porcentaje_actividad'  :  int(99)/100,
+                    'atributos_series':atributos_series,
+
+                }}],
+            
             '8': [{'inicio': '08:08:08',
                   'termino': "09:38:08",
               'propiedades': {'skills' : get_random_non_empty_subset(series),
@@ -407,7 +488,7 @@ def generar_planificacion(un_dia):
          'atributos_series': atributos_series,
                     
                 }},
-                {'inicio': '18:08:08',
+                {'inicio': '10:08:08',
                 'termino': None,
             'propiedades': {'skills' : get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
@@ -425,7 +506,7 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '10': [{'inicio': '10:10:10',
+            '10': [{'inicio': '08:10:10',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
@@ -433,7 +514,7 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '11': [{'inicio': '11:11:11',
+            '11': [{'inicio': '08:11:11',
             'termino': '13:11:11',
             'propiedades': {'skills': get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
@@ -441,7 +522,7 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '12': [{'inicio': '12:12:12',
+            '12': [{'inicio': '08:12:12',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
@@ -449,7 +530,7 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '13': [{'inicio': '13:13:13',
+            '13': [{'inicio': '08:13:13',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
@@ -457,7 +538,7 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '14': [{'inicio': '14:14:14',
+            '14': [{'inicio': '08:14:14',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series), 
                 'configuracion_atencion':random.sample(modos, 1)[0],
@@ -465,7 +546,7 @@ def generar_planificacion(un_dia):
                     'atributos_series':atributos_series,
 
                 }}],
-            '15': [{'inicio': '15:15:15',
+            '15': [{'inicio': '08:15:15',
             'termino': None,
             'propiedades': {'skills': get_random_non_empty_subset(series),
                 'configuracion_atencion': random.sample(modos, 1)[0],
