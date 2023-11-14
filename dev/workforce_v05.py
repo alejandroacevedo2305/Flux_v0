@@ -133,8 +133,8 @@ def objective(trial,
         #Objetivos:    
         #La mayor prioridad es el entero más chico    
         maximizar_SLAs        = tuple(np.array(tuple(pesos_x_serie.values()))*np.array(tuple(dif_cuadratica.values())))#Ponderado por prioridad
-        minimizar_escritorios = (n_escritorios,)
-        minimizar_skills      = (extract_skills_length(planificacion),)
+        minimizar_escritorios = (10*n_escritorios**2,)
+        minimizar_skills      = (extract_skills_length(planificacion)**2,)
         
         
         
@@ -147,18 +147,18 @@ def objective(trial,
         
         elif optimizar == "SLA + escritorios":
             
-            print(f"maximizar_SLAs y minimizar_escritorios {maximizar_SLAs, minimizar_escritorios}")
+            print(f"maximizar_SLAs y minimizar_escritorios { maximizar_SLAs + minimizar_escritorios}")
             return  maximizar_SLAs + minimizar_escritorios
         
         elif optimizar == "SLA + skills":
             
-            print(f"maximizar_SLAs y minimizar_skills {maximizar_SLAs, minimizar_skills}")
+            print(f"maximizar_SLAs y minimizar_skills {maximizar_SLAs + minimizar_skills}")
             return  maximizar_SLAs + minimizar_skills
         
         elif optimizar == "SLA + escritorios + skills":
             
-            print(f"SLA + escritorios + skills {maximizar_SLAs, minimizar_escritorios, minimizar_skills}")
-            return  maximizar_SLAs + minimizar_escritorios + minimizar_skills           
+            print(f"SLA + escritorios + skills {maximizar_SLAs + minimizar_escritorios + minimizar_skills}")
+            return  maximizar_SLAs + minimizar_escritorios + minimizar_skills        
     except Exception as e:
         print(f"An exception occurred: {e}")
         raise optuna.TrialPruned()
@@ -178,7 +178,7 @@ niveles_servicio_x_serie = {atr_dict['serie']:
                             for atr_dict in atributos_series}
 
 subsets      = non_empty_subsets(sorted(list({val for sublist in skills.values() for val in sublist})))
-optimizar    ="SLA" # "SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
+optimizar    ="SLA" #"SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
 n_trials     = 1
 hora_cierre  = '17:00:00'  
 n_objs       = int(
@@ -204,7 +204,7 @@ IA.optimize(lambda trial: objective(trial, optimizar                = optimizar,
                                            niveles_servicio_x_serie = niveles_servicio_x_serie,
                                            series                   = series   
                                            ),
-                   n_trials  = 200, #int(1e4),  # Make sure this is an integer
+                   n_trials  = 10, #int(1e4),  # Make sure this is an integer
                    #timeout   = 2*3600,   #  hours
                    )  
 print(f"{(time.time() - start_time)/60}")
