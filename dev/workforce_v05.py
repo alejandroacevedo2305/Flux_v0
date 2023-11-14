@@ -1,35 +1,29 @@
 #%%
 import warnings
 warnings.filterwarnings('ignore')
-import os
-os.chdir('/DeepenData/Repos/Flux_v0')
-import random
 import pandas as pd
+import random
 import optuna
 from src.datos_utils import DatasetTTP, obtener_skills
 from src.optuna_utils import non_empty_subsets
 import itertools
 import numpy as np
-
 from src.optuna_utils import plan_unico
 from dev.atributos_de_series import atributos_x_serie
 import optuna
 import numpy as np
 import time
-
 from src.optuna_utils import (
     sla_x_serie, 
-    #calculate_geometric_mean, 
     extract_skills_length, 
-    #extract_min_value_keys, 
-    #extract_max_value_keys, 
-    non_empty_subsets, 
-    #get_random_non_empty_subset, 
-    #get_time_intervals,
-    #partition_dataframe_by_time_intervals,  
-    #plan_unico
+    non_empty_subsets
     )
-from dev.MisEscritorios_v04_simv04 import simv04
+from   src.utils_Escritoriosv05_Simv05 import (
+                                           generar_planificacion,
+                                            DatasetTTP)
+from dev.Escritoriosv05_Simv05 import simv05
+from dev.atributos_de_series import atributos_x_serie
+
 
 def get_permutations_array(length):
     # Generate the list based on the input length
@@ -39,23 +33,6 @@ def get_permutations_array(length):
     all_permutations = list(itertools.permutations(items))
     return np.array(all_permutations)
 
-dataset = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
-un_dia = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-skills   = obtener_skills(un_dia)
-series   = sorted(list({val for sublist in skills.values() for val in sublist}))
-atributos_series = atributos_x_serie(ids_series=series, 
-                                    sla_porcen_user=None, 
-                                    sla_corte_user=None, 
-                                    pasos_user=None, 
-                                    prioridades_user=None)
-niveles_servicio_x_serie = {atr_dict['serie']:
-                            (atr_dict['sla_porcen']/100, atr_dict['sla_corte']) 
-                            for atr_dict in atributos_series}
-
-pesos_x_serie           =       {atr_dict['serie']:
-                                atr_dict['prioridad']
-                                 for atr_dict in atributos_series}
-import math
 def objective(trial, 
     un_dia : pd.DataFrame,  # IdOficina  IdSerie  IdEsc, FH_Emi, FH_Llama  -- Deberia llamarse 'un_tramo'
     subsets: list, # [(5,), (10,), (11,), (12,), (14,), (17,), (5, 10), (5, 11), (5, 12), (5, 14), (5, 17), (10, 11),  <...> 14, 17), (5, 10, 12, 14, 17), (5, 11, 12, 14, 17), (10, 11, 12, 14, 17), (5, 10, 11, 12, 14, 17)]
@@ -65,6 +42,7 @@ def objective(trial,
     optimizar: str = "SLA",
     minimo_escritorios: int = 2,
     maximo_escritorios: int = 5,
+    niveles_servicio_x_serie = None,
     ):    
     try:
         bool_vector              = [trial.suggest_categorical(f'escritorio_{i}', [True, False]) for i in range(maximo_escritorios)]
@@ -124,7 +102,7 @@ def objective(trial,
 
                         
         trial.set_user_attr('planificacion', planificacion) # This' actually cool 
-        registros_atenciones, fila, n_minutos = simv04(un_dia, hora_cierre, planificacion, niveles_servicio_x_serie)   
+        registros_atenciones, _      = simv05(un_dia, hora_cierre, planificacion)   
         registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
         registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
         pocentajes_SLA        = [int(100*v[0])for k,v in niveles_servicio_x_serie.items()]
@@ -174,14 +152,25 @@ def objective(trial,
     except Exception as e:
         print(f"An exception occurred: {e}")
         raise optuna.TrialPruned()
-  
 
+dataset                                 = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz") # IdOficina=2)
+un_dia                                  = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
 skills       = obtener_skills(un_dia)
 series       = sorted(list({val for sublist in skills.values() for val in sublist}))
+
+atributos_series = atributos_x_serie(ids_series=series, 
+                                    sla_porcen_user=None, 
+                                    sla_corte_user=None, 
+                                    pasos_user=None, 
+                                    prioridades_user=None)
+niveles_servicio_x_serie = {atr_dict['serie']:
+                            (atr_dict['sla_porcen']/100, atr_dict['sla_corte']) 
+                            for atr_dict in atributos_series}
+
 subsets      = non_empty_subsets(sorted(list({val for sublist in skills.values() for val in sublist})))
 optimizar    ="SLA" # "SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
 n_trials     = 1
-hora_cierre  = '20:00:00'  
+hora_cierre  = '17:00:00'  
 n_objs       = int(
                         len(series)
                         if optimizar == "SLA"
@@ -194,41 +183,41 @@ n_objs       = int(
 
 start_time = time.time()
 IA      = optuna.multi_objective.create_study(directions= n_objs*['minimize'])
+pesos_x_serie = {s: random.randint(1,len(series)) for s in series}
 IA.optimize(lambda trial: objective(trial, optimizar                = optimizar,
                                            un_dia                   = un_dia,
                                            subsets                  = subsets,
                                            hora_cierre              = hora_cierre,
                                            pesos_x_serie            = pesos_x_serie,
                                            minimo_escritorios       = 2,
-                                           maximo_escritorios       = 13
+                                           maximo_escritorios       = 13,
+                                           niveles_servicio_x_serie = niveles_servicio_x_serie
                                            ),
                    n_trials  = 10, #int(1e4),  # Make sure this is an integer
                    #timeout   = 2*3600,   #  hours
                    )  
 print(f"{(time.time() - start_time)/60}")
-
 #%%
 planificacion_optuna = [trial for trial in IA.trials if trial.state == optuna.trial.TrialState.COMPLETE][-1].user_attrs.get('planificacion')
 
 
 start_time = time.time()
-hora_cierre           = '23:00:00'  
+#hora_cierre           = '23:00:00'  
 
-registros_atenciones, fila, n_minutos = simv04(un_dia, hora_cierre, planificacion_optuna, niveles_servicio_x_serie)   
+registros_atenciones, fila = simv05(un_dia, hora_cierre, planificacion_optuna)   
 print(f"atendidos {len(registros_atenciones) }, en espera { len(fila) }")        
 end_time = time.time()
 elapsed_time = end_time - start_time
-print(f"el simulador demoró {elapsed_time} segundos. Simulación desde las {str(un_dia.FH_Emi.min().time())} hasta las {hora_cierre} ({n_minutos/60} horas simuladas).")
+print(f"el simulador demoró {elapsed_time} segundos. Simulación desde las {str(un_dia.FH_Emi.min().time())} hasta las {hora_cierre}")
 #%%
-registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
-registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
-pocentajes_SLA        = [int(100*v[0])for k,v in niveles_servicio_x_serie.items()]
-mins_de_corte_SLA     = [int(v[1])for k,v in niveles_servicio_x_serie.items()]        
-df_pairs              = [(sla_x_serie(r_x_s, '1H', corte = corte), s) 
-                            for r_x_s, s, corte in zip(registros_x_serie, series, mins_de_corte_SLA)]
 
-df_pairs
-# porcentajes_reales    = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
-# dif_cuadratica        = {k:(v-p)**2 for ((k,v),p) in zip(porcentajes_reales.items(),pocentajes_SLA)}
-#Objetivos:    
-#La mayor prioridad es el entero más chico    
+
+
+
+
+
+#%%
+planificacion, niveles_servicio_x_serie = generar_planificacion(un_dia)
+hora_cierre="18:00:00"
+registros_atenciones, fila =  simv05(un_dia, hora_cierre, planificacion)
+print(f"{len(registros_atenciones) = }, {len(fila) = }")
