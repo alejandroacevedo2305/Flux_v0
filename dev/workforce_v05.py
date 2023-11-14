@@ -23,7 +23,7 @@ from   src.utils_Escritoriosv05_Simv05 import (
                                             DatasetTTP)
 from dev.Escritoriosv05_Simv05 import simv05
 from dev.atributos_de_series import atributos_x_serie
-
+import math
 
 def get_permutations_array(length):
     # Generate the list based on the input length
@@ -43,21 +43,27 @@ def objective(trial,
     minimo_escritorios: int = 2,
     maximo_escritorios: int = 5,
     niveles_servicio_x_serie = None,
+    series                   : list = None
     ):    
+    all_permutations = list(itertools.permutations([r+1 for r in range(len(series))]))
     try:
-        bool_vector              = [trial.suggest_categorical(f'escritorio_{i}', [True, False]) for i in range(maximo_escritorios)]
-        #Restricción de minimo de escritorios
-        assert sum(bool_vector) >= minimo_escritorios, f"No cumple con minimo_escritorios: {minimo_escritorios}."
         
-        str_dict                 = {i: trial.suggest_categorical(f'{i}',         modos_atenciones) for i in range(maximo_escritorios)} 
-        subset_idx               = {i: trial.suggest_int(f'ids_{i}', 0, len(subsets) - 1) for i in range(maximo_escritorios)}   
+        n_escritorios = trial.suggest_int(
+             f'prioridades', minimo_escritorios, maximo_escritorios )
+        print(f"---------------------n_escritorios {n_escritorios}")
+        #bool_vector              = [trial.suggest_categorical(f'escritorio_{i}', [True, False]) for i in range(n_escritorios)]
+        #Restricción de minimo de escritorios
+        #assert sum(bool_vector) >= minimo_escritorios, f"No cumple con minimo_escritorios: {minimo_escritorios}."
+        
+        str_dict                 = {i: trial.suggest_categorical(f'{i}',         modos_atenciones) for i in range(n_escritorios)} 
+        subset_idx               = {i: trial.suggest_int(f'ids_{i}', 0, len(subsets) - 1) for i in range(n_escritorios)}   
         #prioridades              =  prioridad_x_serie(niveles_servicio_x_serie, 2, 1) 
         planificacion_optuna            =  {} # Arma una planificacion con espacios parametricos. 
         inicio                   =  str(un_dia.FH_Emi.min().time())#'08:33:00'
         termino                  =  str(un_dia.FH_Emi.max().time())#'14:33:00'        
         #skills_len = len(list(subsets[subset_idx[key]]))        
         for key in str_dict.keys():
-            if bool_vector[key]:
+            #if bool_vector[key]:
                 #skills                    = list(subsets[subset_idx[key]])
                 #permutaciones_prioridades = get_permutations_array(list(subsets[subset_idx[key]]).__len__())
                 inner_dict = {
@@ -66,19 +72,18 @@ def objective(trial,
                     'propiedades': {
                         'skills': list(subsets[subset_idx[key]]),# list(subsets[subset_idx[key]]), # Set -> Lista, para el subset 'subset_idx', para el escritorio 'key'
                         'configuracion_atencion': str_dict[key], # 
-                        'prioridades': {k:v for k,v in zip(list(subsets[subset_idx[key]]),
-                                                           list(
-                                        get_permutations_array(
-                                            list(subsets[subset_idx[key]]).__len__())[
-                                       trial.suggest_int(
-                                           f'prioridades', 0, get_permutations_array(list(subsets[subset_idx[key]]).__len__()).__len__()
-                                           )
-                                       ]))}
-                                     ,
+                        'prioridades': 
+                                    {s: r for s,r in zip(series, all_permutations
+                                    [trial.suggest_int('idx', 0, len(all_permutations) - 1)])}
+                                  ,
                         'pasos': {i: trial.suggest_int(f'pasos_{i}', 1, 4) for i in list(subsets[subset_idx[key]])},
                     }
                 }
                 planificacion_optuna[str(key)] = [inner_dict] # NOTE: Es una lista why -- Config por trial por tramo del escritorio 
+                
+                
+                
+
                 
         planificacion = {un_escritorio[0]:
                 [
@@ -102,6 +107,11 @@ def objective(trial,
 
                         
         trial.set_user_attr('planificacion', planificacion) # This' actually cool 
+        
+        
+        nested_list =  [e[0]['propiedades']['skills'] for k, e in  planificacion.items()]
+        assert set([item for sublist in nested_list for item in sublist]) == set(series), "no todas las series incluidas"
+        
         registros_atenciones, _      = simv05(un_dia, hora_cierre, planificacion)   
         registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int) 
         registros_x_serie               = [registros_atenciones[registros_atenciones.IdSerie==s] for s in series]
@@ -112,23 +122,23 @@ def objective(trial,
         porcentajes_reales    = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
         
         
-        #assert not any(math.isnan(x) for x in [v for k, v in porcentajes_reales.items()]), "List contains at least one nan"
+        assert not any(math.isnan(x) for x in [v for k, v in porcentajes_reales.items()]), "porcentajes_reales contains at least one nan"
 
         
         print(f"------------porcentajes_reales {[v for k, v in porcentajes_reales.items()]}")
         print(f"----------------pocentajes_SLA :{pocentajes_SLA}")
         #print(f"sla_real: {sla_real} - sla_teorico {sla_teorico}")
-        dif_cuadratica        = {k:((sla_real-sla_teorico)**2 if sla_real <= sla_teorico else 0 ) 
+        dif_cuadratica        = {k:((sla_real-sla_teorico)**2 if sla_real < sla_teorico else abs((sla_real-sla_teorico)) ) 
                                  for ((k,sla_real),sla_teorico) in zip(porcentajes_reales.items(),pocentajes_SLA)}
         #Objetivos:    
         #La mayor prioridad es el entero más chico    
         maximizar_SLAs        = tuple(np.array(tuple(pesos_x_serie.values()))*np.array(tuple(dif_cuadratica.values())))#Ponderado por prioridad
-        minimizar_escritorios = (sum(bool_vector),)
+        minimizar_escritorios = (n_escritorios,)
         minimizar_skills      = (extract_skills_length(planificacion),)
         
         
         
-        #assert not any(math.isnan(x) for x in maximizar_SLAs), "al menos un SLA NaN"
+        assert not any(math.isnan(x) for x in maximizar_SLAs), "al menos un SLA NaN"
         
         if optimizar == "SLA":
             
@@ -189,15 +199,17 @@ IA.optimize(lambda trial: objective(trial, optimizar                = optimizar,
                                            subsets                  = subsets,
                                            hora_cierre              = hora_cierre,
                                            pesos_x_serie            = pesos_x_serie,
-                                           minimo_escritorios       = 2,
+                                           minimo_escritorios       = 10,
                                            maximo_escritorios       = 13,
-                                           niveles_servicio_x_serie = niveles_servicio_x_serie
+                                           niveles_servicio_x_serie = niveles_servicio_x_serie,
+                                           series                   = series   
                                            ),
-                   n_trials  = 10, #int(1e4),  # Make sure this is an integer
+                   n_trials  = 200, #int(1e4),  # Make sure this is an integer
                    #timeout   = 2*3600,   #  hours
                    )  
 print(f"{(time.time() - start_time)/60}")
 #%%
+
 planificacion_optuna = [trial for trial in IA.trials if trial.state == optuna.trial.TrialState.COMPLETE][-1].user_attrs.get('planificacion')
 
 
@@ -217,7 +229,7 @@ print(f"el simulador demoró {elapsed_time} segundos. Simulación desde las {str
 
 
 #%%
-planificacion, niveles_servicio_x_serie = generar_planificacion(un_dia)
-hora_cierre="18:00:00"
-registros_atenciones, fila =  simv05(un_dia, hora_cierre, planificacion)
-print(f"{len(registros_atenciones) = }, {len(fila) = }")
+# planificacion, niveles_servicio_x_serie = generar_planificacion(un_dia)
+# hora_cierre="18:00:00"
+# registros_atenciones, fila =  simv05(un_dia, hora_cierre, planificacion)
+# print(f"{len(registros_atenciones) = }, {len(fila) = }")
