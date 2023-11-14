@@ -19,8 +19,12 @@ from src.optuna_utils import (
     non_empty_subsets
     )
 from   src.utils_Escritoriosv05_Simv05 import (
+                                           plan_unico,
                                            generar_planificacion,
-                                            DatasetTTP)
+                                           extract_min_value_keys,
+                                            DatasetTTP,
+                                            get_time_intervals,
+                                            partition_dataframe_by_time_intervals)
 from dev.Escritoriosv05_Simv05 import simv05
 from dev.atributos_de_series import atributos_x_serie
 import math
@@ -179,7 +183,7 @@ niveles_servicio_x_serie = {atr_dict['serie']:
 
 subsets      = non_empty_subsets(sorted(list({val for sublist in skills.values() for val in sublist})))
 optimizar    ="SLA" #"SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
-n_trials     = 1
+
 hora_cierre  = '17:00:00'  
 n_objs       = int(
                         len(series)
@@ -211,11 +215,8 @@ print(f"{(time.time() - start_time)/60}")
 #%%
 
 planificacion_optuna = [trial for trial in IA.trials if trial.state == optuna.trial.TrialState.COMPLETE][-1].user_attrs.get('planificacion')
-
-
 start_time = time.time()
 #hora_cierre           = '23:00:00'  
-
 registros_atenciones, fila = simv05(un_dia, hora_cierre, planificacion_optuna)   
 print(f"atendidos {len(registros_atenciones) }, en espera { len(fila) }")        
 end_time = time.time()
@@ -223,12 +224,75 @@ elapsed_time = end_time - start_time
 print(f"el simulador demoró {elapsed_time} segundos. Simulación desde las {str(un_dia.FH_Emi.min().time())} hasta las {hora_cierre}")
 #%%
 
+intervals  = get_time_intervals(un_dia, n = 4, porcentaje_actividad = 1) # Una funcion que recibe un dia, un intervalo, y un porcentaje de actividad para todos los intervalos
+partitions = partition_dataframe_by_time_intervals(un_dia, intervals) # TODO: implementar como un static del simulador? 
+storage = optuna.storages.get_storage("sqlite:///alejandro_objs_v05.db")
+n_trials     = 5
 
+for idx, (part, inters) in enumerate(zip(partitions,intervals)):
+    print(inters)
+    #print(idx, part, inters[1])
+    
+    study_name = f"tramo_{idx}"
+    study = optuna.multi_objective.create_study(directions= n_objs*['minimize'],
+                                                study_name=study_name,
+                                                storage=storage, load_if_exists=True)
+    # TODO: sacar fuera
+    # Optimize with a timeout (in seconds)
+    
+    subsets      = non_empty_subsets(sorted(list({val for sublist in obtener_skills(part).values() for val in sublist})))
 
-
+    
+    study.optimize(lambda trial: objective(trial,
+                                           optimizar                = optimizar,
+                                           un_dia                   = part,
+                                           subsets                  = subsets,
+                                           hora_cierre              =  inters[1],
+                                           pesos_x_serie            = pesos_x_serie,
+                                           minimo_escritorios       = 10,
+                                           maximo_escritorios       = 13,
+                                           niveles_servicio_x_serie = niveles_servicio_x_serie,
+                                           series                   = sorted(list({val for sublist in obtener_skills(part).values() for val in sublist}))   
+                                           ),
+                   n_trials  = n_trials, #int(1e4),  # Make sure this is an integer
+                   timeout   = 2*3600,   #  hours
+                   )  # 
 
 
 #%%
+recomendaciones_db   = optuna.storages.get_storage("sqlite:///alejandro_objs_v05.db") # Objetivos de 6-salidas
+resumenes            = optuna.study.get_all_study_summaries(recomendaciones_db)
+nombres              = [s.study_name for s in resumenes if "tramo_" in s.study_name]
+
+scores_studios = {}
+for un_nombre in nombres:
+    un_estudio            = optuna.multi_objective.load_study(study_name=un_nombre, storage=recomendaciones_db)
+    trials_de_un_estudio  = un_estudio.get_trials(deepcopy=False) #or pareto trials??
+    scores_studios        = scores_studios | {f"{un_nombre}":
+        { trial.number: np.mean([x for x in trial.values if x is not None]) 
+                for
+                    trial in trials_de_un_estudio if trial.state == optuna.trial.TrialState.COMPLETE}
+                    } 
+    
+trials_optimos          = extract_min_value_keys(scores_studios) # Para cada tramo, extrae el maximo, 
+planificaciones_optimas = {}   
+for k,v in trials_optimos.items():
+    un_estudio               = optuna.multi_objective.load_study(study_name=k, storage=recomendaciones_db)
+    trials_de_un_estudio     = un_estudio.get_trials(deepcopy=False)
+    planificaciones_optimas  = planificaciones_optimas | {f"{k}":
+        trial.user_attrs.get('planificacion')#calcular_optimo(trial.values)
+                for
+                    trial in trials_de_un_estudio if trial.number == v[0]
+                    }   
+    
+planificacion_optima   =  plan_unico([plan for tramo,plan in planificaciones_optimas.items()])
+
+#%%
+
+
+registros_atenciones, fila =  simv05(un_dia, hora_cierre, planificacion_optima) 
+print(f"{len(registros_atenciones) = }, {len(fila) = }")
+
 # planificacion, niveles_servicio_x_serie = generar_planificacion(un_dia)
 # hora_cierre="18:00:00"
 # registros_atenciones, fila =  simv05(un_dia, hora_cierre, planificacion)

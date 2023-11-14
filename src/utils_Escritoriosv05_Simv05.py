@@ -4,6 +4,72 @@ from copy import deepcopy
 import pandas as pd
 import random
 from datetime import datetime
+def get_permutations_array(length):
+    # Generate the list based on the input length
+    items = list(range(1, length + 1))
+    
+    # Get all permutations of the list
+    all_permutations = list(itertools.permutations(items))
+    return np.array(all_permutations)
+def plan_unico(lst_of_dicts):
+    new_list = []    
+    # Initialize a counter for the new globally unique keys
+    global_counter = 0    
+    # Loop through each dictionary in the original list
+    for dct in lst_of_dicts:        
+        # Initialize an empty dictionary to hold the key-value pairs of the original dictionary but with new keys
+        new_dct = {}        
+        # Loop through each key-value pair in the original dictionary
+        for key, value in dct.items():            
+            # Assign the value to a new key in the new dictionary
+            new_dct[global_counter] = value            
+            # Increment the global counter for the next key
+            global_counter += 1        
+        # Append the newly created dictionary to the list
+        new_list.append(new_dct)
+        
+    return {str(k): v for d in new_list for k, v in d.items()}
+
+def extract_min_value_keys(input_dict):
+    output_dict = {}  # Initialize an empty dictionary to store the result
+    # Loop through each item in the input dictionary
+    for workforce, values_dict in input_dict.items():
+        max_key = min(values_dict, key=values_dict.get)  # Find the key with the maximum value in values_dict
+        max_value = values_dict[max_key]  # Get the maximum value
+        output_dict[workforce] = (max_key, max_value)  # Add the key and value to the output dictionary
+    return output_dict  # Return the output dictionary
+
+def get_time_intervals(df, n, porcentaje_actividad:float=1):
+    assert porcentaje_actividad <= 1 
+    assert porcentaje_actividad > 0 
+
+    # Step 1: Find the minimum and maximum times from the FH_Emi column
+    min_time = df['FH_Emi'].min()
+    max_time = df['FH_Emi'].max()    
+    # Step 2: Calculate the total time span
+    total_span = max_time - min_time    
+    # Step 3: Divide this span by n to get the length of each interval
+    interval_length = total_span / n    
+    # Step 4: Create the intervals
+    intervals = [(min_time + i*interval_length, min_time + (i+1)*interval_length) for i in range(n)]    
+    # New Step: Adjust the start time of each interval based on the percentage input
+    adjusted_intervals = [(start_time + 1 * (1 - porcentaje_actividad) * (end_time - start_time), end_time) for start_time, end_time in intervals]
+    # Step 5: Format the intervals as requested
+    formatted_intervals = [(start_time.strftime('%H:%M:%S'), end_time.strftime('%H:%M:%S')) for start_time, end_time in adjusted_intervals]
+    
+    return formatted_intervals
+def partition_dataframe_by_time_intervals(df, intervals):
+    partitions = []    
+    # Loop over each time interval to create a partition
+    for start, end in intervals:
+        # Convert the time strings to Pandas time objects
+        start_time = pd.to_datetime(start).time()
+        end_time = pd.to_datetime(end).time()        
+        # Create a mask for filtering the DataFrame based on the time interval
+        mask = (df['FH_Emi'].dt.time >= start_time) & (df['FH_Emi'].dt.time <= end_time)        
+        # Apply the mask to the DataFrame to get the partition and append to the list
+        partitions.append(df[mask])        
+    return partitions
 
 def extract_highest_priority_and_earliest_time_row(df, priorities):
     # Create a copy of the DataFrame to avoid modifying the original unintentionally
