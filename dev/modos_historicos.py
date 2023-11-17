@@ -77,7 +77,7 @@ planificacion = plan_desde_skills(skills, porcentaje_actividad = 0.8, inicio = '
 # hora_actual   = "08:00:00"
 # supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion)
 # print(supervisor.escritorios_ON)
-hora_cierre           = "8:44:59"
+hora_cierre           = "09:47:00"
 reloj                 = reloj_rango_horario(str(un_dia.FH_AteIni.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
 matcher_emision_reloj = match_emisiones_reloj_historico(un_dia)
@@ -111,7 +111,10 @@ for hora_actual in reloj:
         
         print(f"hora_actual: {hora_actual} - emisiones: {list(emisiones['FH_AteIni'])}")
 
-        fila           = pd.concat([fila, emisiones])    
+        fila           = pd.concat([fila, emisiones])  
+        
+      
+    
     #if not fila.empty:   
     if disponibles:= supervisor.filtrar_x_estado('disponible'):
         conectados_disponibles       = balancear_carga_escritorios(
@@ -137,31 +140,11 @@ for hora_actual in reloj:
                 supervisor.iniciar_atencion(escritorio_seleccionado, cliente_seleccionado)
                 fila = remove_selected_row(fila, cliente_seleccionado)
                 registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])    
-        #for un_escritorio in conectados_disponibles:
-            #configuracion_atencion = supervisor.escritorios_ON[un_escritorio]['configuracion_atencion']
-            #fila_filtrada          = fila[fila['IdSerie'].isin(supervisor.escritorios_ON[un_escritorio].get('skills', []))]#filtrar_fila_por_skills(fila, supervisor.escritorios_ON[un_escritorio])
-            # if  fila_filtrada.empty:
-            #         continue
-            # print(fila_filtrada, skills[un_escritorio])
-            # elif configuracion_atencion == "FIFO":
-            #     cliente_seleccionado = FIFO(fila_filtrada)                
-            # elif configuracion_atencion == "Rebalse":
-            #     cliente_seleccionado = extract_highest_priority_and_earliest_time_row(fila_filtrada, supervisor.escritorios_ON[un_escritorio].get('prioridades'))
-            # elif configuracion_atencion == "Alternancia":                
-            #     cliente_seleccionado = supervisor.escritorios_ON[un_escritorio]['pasos_alternancia'].buscar_cliente(fila_filtrada)            
-            # cliente_seleccionado['IdEsc'] = int(un_escritorio)
-            #    fila = remove_selected_row(fila, cliente_seleccionado)                  
-            # supervisor.iniciar_atencion(un_escritorio, cliente_seleccionado)            
-            # registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])                
-
-    #fila['espera'] += 1*60
-
-
-
-
-un_dia.sort_values(by='FH_AteIni', inplace=False)[['FH_AteIni',	'IdSerie',	'T_Ate',	'IdEsc', 'T_Esp']].head(8), fila, registros_atenciones
+    fila['espera'] += 1*60
+             
+pd.set_option('display.max_rows', None)
+registros_atenciones
 #%%
-iterador = iter(islice(count(start=0, step=1), 0))
+un_dia.sort_values(by='FH_AteIni', inplace=False)[['FH_AteIni',	'IdSerie',	'T_Ate',	'IdEsc', 'T_Esp']].head(101)#, fila, registros_atenciones
 
 #%%
-next(iterador, None) == None
