@@ -18,20 +18,34 @@ from src.optuna_utils import (
     extract_skills_length, 
     non_empty_subsets
     )
+from   itertools                       import (count, islice)
+import pandas                          as pd
+from datetime import datetime
+from typing import List
+import math
 from   src.utils_Escritoriosv05_Simv05 import (
-                                            get_permutations_array,
-                                           plan_unico,
-                                           generar_planificacion,
-                                           extract_min_value_keys,
+                                            actualizar_keys_tramo,
+                                            separar_por_conexion,
+                                            reset_escritorios_OFF,
+                                            pasos_alternancia_v03,
                                             DatasetTTP,
-                                            get_time_intervals,
-                                            partition_dataframe_by_time_intervals)
-from dev.Escritoriosv05_Simv05 import simv05
+                                            generar_planificacion,
+                                            reloj_rango_horario,
+                                            generate_integer, 
+                                            match_emisiones_reloj,
+                                            match_emisiones_reloj_historico,
+                                            reloj_rango_horario,
+                                            remove_selected_row,
+                                            FIFO,
+                                            balancear_carga_escritorios,
+                                            extract_highest_priority_and_earliest_time_row
+                                            )
+from dev.Escritoriosv05_Simv05 import simv05, Escritoriosv05
 from dev.atributos_de_series import atributos_x_serie
 import math
 
 dataset                                 = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz") # IdOficina=2)
-un_dia                                  = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+un_dia                                  = dataset.un_dia("2023-05-15").sort_values(by='FH_AteIni', inplace=False)
 skills       = obtener_skills(un_dia)
 
 #%%
@@ -43,7 +57,7 @@ def plan_desde_skills(skills, porcentaje_actividad, inicio):
     return  {id: [
                     {'inicio':inicio,
                     'termino':None,
-                    'prioridades': {
+                    'propiedades': {
                         'skills': sks,
                         'configuracion_atencion': None,
                         'porcentaje_actividad'  :  porcentaje_actividad,
@@ -57,6 +71,97 @@ def plan_desde_skills(skills, porcentaje_actividad, inicio):
                         ] for id, sks in skills.items()}
 
 
-plan_desde_skills(skills, porcentaje_actividad = 80, inicio = '08:00:00')
+planificacion = plan_desde_skills(skills, porcentaje_actividad = 0.8, inicio = '08:00:00')
+# supervisor    = Escritoriosv05(planificacion = planificacion)
+# print(supervisor.escritorios_ON)
+# hora_actual   = "08:00:00"
+# supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion)
+# print(supervisor.escritorios_ON)
+hora_cierre           = "8:44:59"
+reloj                 = reloj_rango_horario(str(un_dia.FH_AteIni.min().time()), hora_cierre)
+registros_atenciones  = pd.DataFrame()
+matcher_emision_reloj = match_emisiones_reloj_historico(un_dia)
+supervisor            = Escritoriosv05(planificacion = planificacion)
+registros_atenciones  = pd.DataFrame()
+fila                  = pd.DataFrame()
+#i=0
+for hora_actual in reloj:
+    print(f"--------------------------------NUEVA hora_actual {hora_actual}---------------------")
+    supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion)
+    
+    if (supervisor.filtrar_x_estado('atención') or  supervisor.filtrar_x_estado('pausa')):
+        en_atencion            = supervisor.filtrar_x_estado('atención') or []
+        en_pausa               = supervisor.filtrar_x_estado('pausa') or []
+        escritorios_bloqueados = set(en_atencion + en_pausa)            
+        escritorios_bloqueados_conectados    = [k for k,v in supervisor.escritorios_ON.items() if k in escritorios_bloqueados]
+        print(f"iterar_escritorios_bloqueados: {escritorios_bloqueados_conectados}")        
+        supervisor.iterar_escritorios_bloqueados(escritorios_bloqueados_conectados)
+
+    if disponibles:= supervisor.filtrar_x_estado('disponible'):
+        conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in disponibles]
+        print(f'iterar_escritorios_disponibles: {conectados_disponibles}')
+        supervisor.iterar_escritorios_disponibles(conectados_disponibles)
+
+    matcher_emision_reloj.match(hora_actual)
+    
+    if not matcher_emision_reloj.match_emisiones.empty:
+        print(f"nuevas emisiones")
+
+        emisiones      = matcher_emision_reloj.match_emisiones
+        
+        print(f"hora_actual: {hora_actual} - emisiones: {list(emisiones['FH_AteIni'])}")
+
+        fila           = pd.concat([fila, emisiones])    
+    #if not fila.empty:   
+    if disponibles:= supervisor.filtrar_x_estado('disponible'):
+        conectados_disponibles       = balancear_carga_escritorios(
+                                                                    {k: {'numero_de_atenciones':v['numero_de_atenciones'],
+                                                                        'tiempo_actual_disponible': v['tiempo_actual_disponible']} 
+                                                                    for k,v in supervisor.escritorios_ON.items() if k in disponibles}
+                                                                    )
+        
+        for _, cliente_seleccionado in fila.iterrows():
+            print(f"for _, cliente_seleccionado in fila.iterrows():")
+            if cliente_seleccionado.IdEsc in [int(c) for c in conectados_disponibles]:
+                
+                idx_escritorio_seleccionado= [int(c) for c in conectados_disponibles].index(cliente_seleccionado.IdEsc) 
+                
+                
+                escritorio_seleccionado = conectados_disponibles[idx_escritorio_seleccionado]
+                #print(escritorio_seleccionado)
+                print(f"°°MATCH escritorio_seleccionado: {escritorio_seleccionado} - cliente_seleccionado.IdEsc: {cliente_seleccionado.IdEsc}")
+                print(f"°°MATCH hora_actual: {hora_actual} - FH_AteIni: {cliente_seleccionado.FH_AteIni}")
+
+                assert int(escritorio_seleccionado) == cliente_seleccionado.IdEsc
+                
+                supervisor.iniciar_atencion(escritorio_seleccionado, cliente_seleccionado)
+                fila = remove_selected_row(fila, cliente_seleccionado)
+                registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])    
+        #for un_escritorio in conectados_disponibles:
+            #configuracion_atencion = supervisor.escritorios_ON[un_escritorio]['configuracion_atencion']
+            #fila_filtrada          = fila[fila['IdSerie'].isin(supervisor.escritorios_ON[un_escritorio].get('skills', []))]#filtrar_fila_por_skills(fila, supervisor.escritorios_ON[un_escritorio])
+            # if  fila_filtrada.empty:
+            #         continue
+            # print(fila_filtrada, skills[un_escritorio])
+            # elif configuracion_atencion == "FIFO":
+            #     cliente_seleccionado = FIFO(fila_filtrada)                
+            # elif configuracion_atencion == "Rebalse":
+            #     cliente_seleccionado = extract_highest_priority_and_earliest_time_row(fila_filtrada, supervisor.escritorios_ON[un_escritorio].get('prioridades'))
+            # elif configuracion_atencion == "Alternancia":                
+            #     cliente_seleccionado = supervisor.escritorios_ON[un_escritorio]['pasos_alternancia'].buscar_cliente(fila_filtrada)            
+            # cliente_seleccionado['IdEsc'] = int(un_escritorio)
+            #    fila = remove_selected_row(fila, cliente_seleccionado)                  
+            # supervisor.iniciar_atencion(un_escritorio, cliente_seleccionado)            
+            # registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])                
+
+    #fila['espera'] += 1*60
 
 
+
+
+un_dia.sort_values(by='FH_AteIni', inplace=False)[['FH_AteIni',	'IdSerie',	'T_Ate',	'IdEsc', 'T_Esp']].head(8), fila, registros_atenciones
+#%%
+iterador = iter(islice(count(start=0, step=1), 0))
+
+#%%
+next(iterador, None) == None

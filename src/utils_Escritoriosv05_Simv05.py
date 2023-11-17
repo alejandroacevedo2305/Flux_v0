@@ -651,7 +651,7 @@ def reloj_rango_horario(start: str, end: str):
 
 class match_emisiones_reloj():
     def __init__(self, bloque_atenciones) -> bool:        
-        self.bloque_atenciones = bloque_atenciones[['FH_Emi', 'IdSerie', 'T_Ate']]       
+        self.bloque_atenciones = bloque_atenciones[['FH_Emi','IdSerie','T_Ate']]       
     def match(self, tiempo_actual):        
         # Convert the given time string to a timedelta object
         h, m, s = map(int, tiempo_actual.split(':'))
@@ -659,6 +659,28 @@ class match_emisiones_reloj():
         # Filter rows based on the given condition
         try:
             mask = self.bloque_atenciones['FH_Emi'].apply(
+                    lambda x: abs(timedelta(
+                    hours=x.hour, minutes=x.minute, seconds=x.second) - given_time) <= timedelta(seconds=60)) 
+                
+            # Rows that satisfy the condition
+            self.match_emisiones   = self.bloque_atenciones[mask].copy()
+            self.match_emisiones['espera'] = 0        
+            self.bloque_atenciones = self.bloque_atenciones[~mask]#.copy()            
+            return self
+        except KeyError:
+            #self.bloque_atenciones 
+            pass
+        
+class match_emisiones_reloj_historico():
+    def __init__(self, bloque_atenciones) -> bool:        
+        self.bloque_atenciones = bloque_atenciones[['FH_AteIni' ,'IdSerie', 'T_Ate', 'IdEsc']]       
+    def match(self, tiempo_actual):        
+        # Convert the given time string to a timedelta object
+        h, m, s = map(int, tiempo_actual.split(':'))
+        given_time = timedelta(hours=h, minutes=m, seconds=s)
+        # Filter rows based on the given condition
+        try:
+            mask = self.bloque_atenciones['FH_AteIni'].apply(
                     lambda x: abs(timedelta(
                     hours=x.hour, minutes=x.minute, seconds=x.second) - given_time) <= timedelta(seconds=60)) 
                 
