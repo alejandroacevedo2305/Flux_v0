@@ -115,16 +115,10 @@ for hora_actual in reloj:
         
       
     
-    #if not fila.empty:   
-    if disponibles:= supervisor.filtrar_x_estado('disponible'):
-        conectados_disponibles       = balancear_carga_escritorios(
-                                                                    {k: {'numero_de_atenciones':v['numero_de_atenciones'],
-                                                                        'tiempo_actual_disponible': v['tiempo_actual_disponible']} 
-                                                                    for k,v in supervisor.escritorios_ON.items() if k in disponibles}
-                                                                    )
-        
-        for _, cliente_seleccionado in fila.iterrows():
-            print(f"for _, cliente_seleccionado in fila.iterrows():")
+    if disponibles:= supervisor.filtrar_x_estado('disponible'):      
+        for i, cliente_seleccionado in fila.iterrows():
+            print(f"for {i}, cliente_seleccionado in fila.iterrows():")
+
             if cliente_seleccionado.IdEsc in [int(c) for c in conectados_disponibles]:
                 
                 idx_escritorio_seleccionado= [int(c) for c in conectados_disponibles].index(cliente_seleccionado.IdEsc) 
@@ -138,10 +132,14 @@ for hora_actual in reloj:
                 assert int(escritorio_seleccionado) == cliente_seleccionado.IdEsc
                 
                 supervisor.iniciar_atencion(escritorio_seleccionado, cliente_seleccionado)
+                conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in supervisor.filtrar_x_estado('disponible')]
+                
                 fila = remove_selected_row(fila, cliente_seleccionado)
-                registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])    
+                registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])
+    else:
+        print(f"!!!!!!!!!!!!!!!!!!!!!!!todos los escritios ocupados")    
     fila['espera'] += 1*60
-             
+#%%             
 pd.set_option('display.max_rows', None)
 registros_atenciones
 #%%

@@ -210,7 +210,7 @@ class Escritoriosv05:
         
         for escri_dispon in escritorios_disponibles:               
             #avanzamos en un minuto el tiempo que lleva disponible.
-            tiempo_disponible = next(self.escritorios_ON[escri_dispon]['contador_tiempo_disponible'], None)
+            tiempo_disponible = next(self.escritorios_ON[escri_dispon]['contador_tiempo_disponible'])
             if tiempo_disponible is not None:
             #guardar el tiempo que lleva disponible
                 self.escritorios_ON[escri_dispon]['tiempo_actual_disponible'] = tiempo_disponible
