@@ -42,7 +42,7 @@ class Escritoriosv05:
                                             'numero_pausas':              None,        # --- pausas ---
                                             'prioridades':                None,                                                                        
                                             'pasos':                      None,               
-                                            'conexion':                   True,
+                                            'conexion':                   False,
                                             'pasos_alternancia': None,                                       
                                             }
                                             for k, v in planificacion.items()}  #        
@@ -81,14 +81,16 @@ class Escritoriosv05:
                                                                         int((1 - un_tramo['propiedades'].get('porcentaje_actividad', 0)) * 
                                                                             ((datetime.strptime('13:00:00', '%H:%M:%S')-datetime.strptime('12:00:00', '%H:%M:%S')).total_seconds()/60))
                                                                         )) if un_tramo['propiedades'].get('porcentaje_actividad') is not None else None,
-                                            'contador_tiempo_disponible':  iter(count(start=0, step=1)), 
+                                            'contador_tiempo_disponible':  
+                        self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1)), 
+                        
                                             'pasos_alternancia': pasos_alternancia_v03(prioridades = 
                                                                                                    {dict_series['serie']: dict_series['prioridad'] for dict_series in 
                                                                                                    un_tramo['propiedades'].get('atributos_series')},
-                                                                                       pasos = 
-                                                                                              {dict_series['serie']: dict_series['pasos'] for dict_series in 
-                                                                                               un_tramo['propiedades'].get('atributos_series')})
-                                                                           if un_tramo['propiedades']['configuracion_atencion'] == 'Alternancia' else None, 
+                                pasos = 
+                                            {dict_series['serie']: dict_series['pasos'] for dict_series in 
+                                                un_tramo['propiedades'].get('atributos_series')})
+                                                if un_tramo['propiedades']['configuracion_atencion'] == 'Alternancia' else None, 
                                             }}
                 if on_off:
                     break   
@@ -211,9 +213,7 @@ class Escritoriosv05:
         for escri_dispon in escritorios_disponibles:               
             #avanzamos en un minuto el tiempo que lleva disponible.
             tiempo_disponible = next(self.escritorios_ON[escri_dispon]['contador_tiempo_disponible'])
-            if tiempo_disponible is not None:
-            #guardar el tiempo que lleva disponible
-                self.escritorios_ON[escri_dispon]['tiempo_actual_disponible'] = tiempo_disponible
+            self.escritorios_ON[escri_dispon]['tiempo_actual_disponible'] = tiempo_disponible
         
 def simv05(un_dia, hora_cierre, planificacion):
 

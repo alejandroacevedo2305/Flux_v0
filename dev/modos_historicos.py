@@ -12,6 +12,7 @@ from src.optuna_utils import plan_unico
 from dev.atributos_de_series import atributos_x_serie
 import optuna
 import numpy as np
+from datetime import datetime
 import time
 from src.optuna_utils import (
     sla_x_serie, 
@@ -46,8 +47,6 @@ import math
 
 dataset                                 = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz") # IdOficina=2)
 un_dia                                  = dataset.un_dia("2023-05-15").sort_values(by='FH_AteIni', inplace=False)
-skills       = obtener_skills(un_dia)
-
 #%%
 ######################################
 #-----Modo parámetros históricos------
@@ -69,23 +68,23 @@ def plan_desde_skills(skills, porcentaje_actividad, inicio):
                             prioridades_user=None),
                     }}
                         ] for id, sks in skills.items()}
-
-
-planificacion = plan_desde_skills(skills, porcentaje_actividad = 0.8, inicio = '08:00:00')
-# supervisor    = Escritoriosv05(planificacion = planificacion)
-# print(supervisor.escritorios_ON)
-# hora_actual   = "08:00:00"
-# supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion)
-# print(supervisor.escritorios_ON)
-hora_cierre           = "09:47:00"
+skills                = obtener_skills(un_dia)
+planificacion         = plan_desde_skills(skills, porcentaje_actividad = .9, inicio = '08:00:00')
+hora_cierre           = "09:00:00"
 reloj                 = reloj_rango_horario(str(un_dia.FH_AteIni.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
 matcher_emision_reloj = match_emisiones_reloj_historico(un_dia)
 supervisor            = Escritoriosv05(planificacion = planificacion)
 registros_atenciones  = pd.DataFrame()
 fila                  = pd.DataFrame()
-#i=0
+tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') - 
+                            datetime.strptime(str(un_dia.FH_AteIni.min().time()), '%H:%M:%S')).total_seconds() / 60
+
+
+total_mins_sim =  0 
+
 for hora_actual in reloj:
+    total_mins_sim +=1
     print(f"--------------------------------NUEVA hora_actual {hora_actual}---------------------")
     supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion)
     
@@ -110,35 +109,56 @@ for hora_actual in reloj:
         emisiones      = matcher_emision_reloj.match_emisiones
         
         print(f"hora_actual: {hora_actual} - emisiones: {list(emisiones['FH_AteIni'])}")
-
-        fila           = pd.concat([fila, emisiones])  
-        
-      
-    
-    if disponibles:= supervisor.filtrar_x_estado('disponible'):      
-        for i, cliente_seleccionado in fila.iterrows():
-            print(f"for {i}, cliente_seleccionado in fila.iterrows():")
-
-            if cliente_seleccionado.IdEsc in [int(c) for c in conectados_disponibles]:
-                
-                idx_escritorio_seleccionado= [int(c) for c in conectados_disponibles].index(cliente_seleccionado.IdEsc) 
-                
-                
-                escritorio_seleccionado = conectados_disponibles[idx_escritorio_seleccionado]
-                #print(escritorio_seleccionado)
-                print(f"°°MATCH escritorio_seleccionado: {escritorio_seleccionado} - cliente_seleccionado.IdEsc: {cliente_seleccionado.IdEsc}")
-                print(f"°°MATCH hora_actual: {hora_actual} - FH_AteIni: {cliente_seleccionado.FH_AteIni}")
-
-                assert int(escritorio_seleccionado) == cliente_seleccionado.IdEsc
-                
-                supervisor.iniciar_atencion(escritorio_seleccionado, cliente_seleccionado)
-                conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in supervisor.filtrar_x_estado('disponible')]
-                
-                fila = remove_selected_row(fila, cliente_seleccionado)
-                registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])
+        fila           = pd.concat([fila, emisiones])
     else:
-        print(f"!!!!!!!!!!!!!!!!!!!!!!!todos los escritios ocupados")    
-    fila['espera'] += 1*60
+        print(f"no hay nuevas emisiones hora_actual {hora_actual}")         
+    print(f"minutos simulados {total_mins_sim}")
+    fila['espera'] += 1*1
+print(f"minutos simulados {total_mins_sim} minutos reales {tiempo_total}")
+
+{k: v['tiempo_actual_disponible'] for k,v in supervisor.escritorios_ON.items()}
+
+
+
+
+#%%
+on_off = True
+idEsc  = '7'
+
+
+if supervisor.escritorios_ON[idEsc]['conexion'] == on_off == True: 
+    print("hola")
+
+self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1))
+
+
+#supervisor.propiedades_tramos[1]
+#%%
+
+
+    # if disponibles:= supervisor.filtrar_x_estado('disponible'):      
+    #     for i, cliente_seleccionado in fila.iterrows():
+    #         print(f"for {i}, cliente_seleccionado in fila.iterrows():")
+    #         if cliente_seleccionado.IdEsc in [int(c) for c in conectados_disponibles]:                
+    #             idx_escritorio_seleccionado= [int(c) for c in conectados_disponibles].index(cliente_seleccionado.IdEsc)                
+                
+    #             escritorio_seleccionado = conectados_disponibles[idx_escritorio_seleccionado]                #print(escritorio_seleccionado)
+    #             print(f"°°MATCH escritorio_seleccionado: {escritorio_seleccionado} - cliente_seleccionado.IdEsc: {cliente_seleccionado.IdEsc}")
+    #             print(f"°°MATCH hora_actual: {hora_actual} - FH_AteIni: {cliente_seleccionado.FH_AteIni}")
+    #             assert int(escritorio_seleccionado) == cliente_seleccionado.IdEsc
+                
+    #             supervisor.iniciar_atencion(escritorio_seleccionado, cliente_seleccionado)
+    #             conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in supervisor.filtrar_x_estado('disponible')]
+                
+    #             fila = remove_selected_row(fila, cliente_seleccionado)
+    #             registros_atenciones = pd.concat([registros_atenciones, pd.DataFrame(cliente_seleccionado).T ])
+    # else:
+    #     print(f"!!!!!!!!!!!!!!!!!!!!!!!todos los escritios ocupados")    
+    # fila['espera'] += 1*60
+    
+    
+    
+    
 #%%             
 pd.set_option('display.max_rows', None)
 registros_atenciones
