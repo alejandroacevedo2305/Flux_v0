@@ -4,7 +4,7 @@ os.chdir('/DeepenData/Repos/Flux_v0/')
 import warnings
 warnings.filterwarnings('ignore')
 import pandas as pd
-import random
+import random  
 import optuna
 from src.datos_utils import DatasetTTP, obtener_skills
 from src.optuna_utils import non_empty_subsets
@@ -79,14 +79,12 @@ matcher_emision_reloj = match_emisiones_reloj_historico(un_dia)
 supervisor            = Escritoriosv05(planificacion = planificacion)
 registros_atenciones  = pd.DataFrame()
 fila                  = pd.DataFrame()
+
 tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') - 
                             datetime.strptime(str(un_dia.FH_AteIni.min().time()), '%H:%M:%S')).total_seconds() / 60
 
-
-total_mins_sim =  0 
-
-for hora_actual in reloj:
-    total_mins_sim +=1
+for i , hora_actual in enumerate(reloj):
+    total_mins_sim =i
     print(f"--------------------------------NUEVA hora_actual {hora_actual}---------------------")
     supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion)
     
@@ -113,14 +111,25 @@ for hora_actual in reloj:
         print(f"hora_actual: {hora_actual} - emisiones: {list(emisiones['FH_AteIni'])}")
         fila           = pd.concat([fila, emisiones])
     else:
-        print(f"no hay nuevas emisiones hora_actual {hora_actual}")         
-    print(f"minutos simulados {total_mins_sim}")
-    fila['espera'] += 1*1
+        print(f"no hay nuevas emisiones hora_actual {hora_actual}")   
+
+
+    # for _, un_cliente in fila.iterrows():
+        
+    #     fila = remove_selected_row(fila, un_cliente)
+
+    #     registros_atenciones = pd.concat([registros_atenciones, 
+    #     pd.DataFrame(un_cliente).T])      
+
+    if i == 0:
+        fila['espera'] = 0
+    else:
+        fila['espera'] += 1*1
 print(f"minutos simulados {total_mins_sim} minutos reales {tiempo_total}")
 
 {k: v['tiempo_actual_disponible'] for k,v in supervisor.escritorios_ON.items()}
 
-
+fila, registros_atenciones
 
 
 #%%
@@ -131,7 +140,7 @@ idEsc  = '7'
 if supervisor.escritorios_ON[idEsc]['conexion'] == on_off == True: 
     print("hola")
 
-self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1))
+#self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1))
 
 
 #supervisor.propiedades_tramos[1]
