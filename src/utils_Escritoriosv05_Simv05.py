@@ -156,7 +156,7 @@ def actualizar_keys_tramo(original_dict, updates):
             original_dict[key]['porcentaje_actividad']   = value['porcentaje_actividad']
             original_dict[key]['inicio']                 = value['inicio']
             original_dict[key]['termino']                = value['termino']
-            original_dict[key]['contador_tiempo_disponible']                = value['contador_tiempo_disponible']
+            #original_dict[key]['contador_tiempo_disponible']                = value['contador_tiempo_disponible']
             original_dict[key]['numero_de_atenciones']                = value['numero_de_atenciones']
             original_dict[key]['porcentaje_actividad']                = value['porcentaje_actividad']
             original_dict[key]['duracion_inactividad']                = value['duracion_inactividad']

@@ -32,7 +32,7 @@ class Escritoriosv05:
                                             'tiempo_actual_disponible':   0,  # 
                                             'skills':                     None, #v[0]['propiedades'].get('skills'),  #                                    
                                             'configuracion_atencion':     None, #v[0]['propiedades'].get('configuracion_atencion'),  # 
-                                            'contador_tiempo_disponible': None,  # 
+                                            'contador_tiempo_disponible': iter(count(start=0, step=1)),  # 
                                             'numero_de_atenciones':       0,  #                        
                                             'porcentaje_actividad':      None,
                                             'duracion_inactividad':      None,                                    
@@ -81,8 +81,8 @@ class Escritoriosv05:
                                                                         int((1 - un_tramo['propiedades'].get('porcentaje_actividad', 0)) * 
                                                                             ((datetime.strptime('13:00:00', '%H:%M:%S')-datetime.strptime('12:00:00', '%H:%M:%S')).total_seconds()/60))
                                                                         )) if un_tramo['propiedades'].get('porcentaje_actividad') is not None else None,
-                                            'contador_tiempo_disponible':  
-                        self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1)), 
+                        #                     'contador_tiempo_disponible':  
+                        # self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1)), 
                         
                                             'pasos_alternancia': pasos_alternancia_v03(prioridades = 
                                                                                                    {dict_series['serie']: dict_series['prioridad'] for dict_series in 

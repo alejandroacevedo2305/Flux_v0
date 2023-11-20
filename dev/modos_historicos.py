@@ -70,7 +70,7 @@ def plan_desde_skills(skills, porcentaje_actividad, inicio):
                         ] for id, sks in skills.items()}
 skills                = obtener_skills(un_dia)
 planificacion         = plan_desde_skills(skills, porcentaje_actividad = .9, inicio = '08:00:00')
-hora_cierre           = "09:00:00"
+hora_cierre           = "8:55:00"
 reloj                 = reloj_rango_horario(str(un_dia.FH_AteIni.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
 matcher_emision_reloj = match_emisiones_reloj_historico(un_dia)
