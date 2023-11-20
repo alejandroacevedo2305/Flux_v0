@@ -1,4 +1,6 @@
 #%%
+import os
+os.chdir('/DeepenData/Repos/Flux_v0/')
 import warnings
 warnings.filterwarnings('ignore')
 import pandas as pd
