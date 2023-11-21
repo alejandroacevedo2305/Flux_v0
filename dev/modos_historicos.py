@@ -114,7 +114,7 @@ for i , hora_actual in enumerate(reloj):
         print(f"no hay nuevas emisiones hora_actual {hora_actual}")   
 
 
-    # for _, un_cliente in fila.iterrows():
+    # for _, un_cliente in fila.iterrows():+
         
     #     fila = remove_selected_row(fila, un_cliente)
 
