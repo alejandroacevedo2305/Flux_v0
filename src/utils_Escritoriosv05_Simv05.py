@@ -651,7 +651,7 @@ def reloj_rango_horario(start: str, end: str):
 
 class match_emisiones_reloj():
     def __init__(self, bloque_atenciones) -> bool:        
-        self.bloque_atenciones = bloque_atenciones[['FH_Emi','IdSerie','T_Ate']]       
+        self.bloque_atenciones = bloque_atenciones[['FH_Emi','FH_AteIni','IdSerie','T_Ate','IdEsc']]       
     def match(self, tiempo_actual):        
         # Convert the given time string to a timedelta object
         h, m, s = map(int, tiempo_actual.split(':'))

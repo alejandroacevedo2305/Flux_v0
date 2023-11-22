@@ -48,7 +48,7 @@ from dev.atributos_de_series import atributos_x_serie
 import math
 
 dataset                                 = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz") # IdOficina=2)
-un_dia                                  = dataset.un_dia("2023-05-15").sort_values(by='FH_AteIni', inplace=False)
+un_dia                                  = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
 
 ######################################
 #-----Modo parámetros históricos------
@@ -72,20 +72,28 @@ def plan_desde_skills(skills, porcentaje_actividad, inicio):
                         ] for id, sks in skills.items()}
 skills                      = obtener_skills(un_dia)
 planificacion               = plan_desde_skills(skills, porcentaje_actividad = .9, inicio = '08:00:00')
-planificacion_un_escritorio = plan_desde_skills({'0': list({val for sublist in skills.values() for val in sublist})}, porcentaje_actividad = .9, inicio = '08:00:00')
+
+
+series = list({val for sublist in skills.values() for val in sublist})
+
+planificacion_un_escritorio = plan_desde_skills(
+    {'0': series[:round(len(series)/2)],
+     '1': series[round(len(series)/2):],
+     }
+    , porcentaje_actividad = .9, inicio = '08:00:00')
 
 
 #%%
-hora_cierre           = "8:42:00"
-reloj                 = reloj_rango_horario(str(un_dia.FH_AteIni.min().time()), hora_cierre)
+hora_cierre           = "08:43:00"
+reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
-matcher_emision_reloj = match_emisiones_reloj_historico(un_dia)
+matcher_emision_reloj = match_emisiones_reloj(un_dia)
 supervisor            = Escritoriosv05(planificacion = planificacion_un_escritorio)
 registros_atenciones  = pd.DataFrame()
 fila                  = pd.DataFrame()
 
 tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') - 
-                            datetime.strptime(str(un_dia.FH_AteIni.min().time()), '%H:%M:%S')).total_seconds() / 60
+                            datetime.strptime(str(un_dia.FH_Emi.min().time()), '%H:%M:%S')).total_seconds() / 60
 
 for i , hora_actual in enumerate(reloj):
     total_mins_sim =i
@@ -116,7 +124,7 @@ for i , hora_actual in enumerate(reloj):
 
         emisiones      = matcher_emision_reloj.match_emisiones
         
-        print(f"hora_actual: {hora_actual} - emisiones: {list(emisiones['FH_AteIni'])}")
+        print(f"hora_actual: {hora_actual} - emisiones: {list(emisiones['FH_Emi'])}")
         fila           = pd.concat([fila, emisiones])
     else:
         print(f"no hay nuevas emisiones hora_actual {hora_actual}")   
@@ -136,10 +144,18 @@ for i , hora_actual in enumerate(reloj):
                     fila                 = remove_selected_row(fila, un_cliente)
                     print(f"INICIANDO ATENCION de {tuple(un_cliente)}")
                     supervisor.iniciar_atencion(un_escritorio, un_cliente)
+                    print(f"---escritorios disponibles: { supervisor.filtrar_x_estado('disponible')}")
+                    print(f"---escritorios en atención: { supervisor.filtrar_x_estado('atención')}")
 
 
+                    un_cliente.IdEsc     = int(un_escritorio)
+                    un_cliente.FH_AteIni = hora_actual
+                                       
+                    
                     registros_atenciones = pd.concat([registros_atenciones, 
                     pd.DataFrame(un_cliente).T])
+                else:
+                    break
     else:
         print(f"NO hay escritorios disponibles")      
 
@@ -174,7 +190,7 @@ if supervisor.escritorios_ON[idEsc]['conexion'] == on_off == True:
                 
     #             escritorio_seleccionado = conectados_disponibles[idx_escritorio_seleccionado]                #print(escritorio_seleccionado)
     #             print(f"°°MATCH escritorio_seleccionado: {escritorio_seleccionado} - cliente_seleccionado.IdEsc: {cliente_seleccionado.IdEsc}")
-    #             print(f"°°MATCH hora_actual: {hora_actual} - FH_AteIni: {cliente_seleccionado.FH_AteIni}")
+    #             print(f"°°MATCH hora_actual: {hora_actual} - FH_Emi: {cliente_seleccionado.FH_Emi}")
     #             assert int(escritorio_seleccionado) == cliente_seleccionado.IdEsc
                 
     #             supervisor.iniciar_atencion(escritorio_seleccionado, cliente_seleccionado)
@@ -193,6 +209,6 @@ if supervisor.escritorios_ON[idEsc]['conexion'] == on_off == True:
 pd.set_option('display.max_rows', None)
 registros_atenciones
 #%%
-un_dia.sort_values(by='FH_AteIni', inplace=False)[['FH_AteIni',	'IdSerie',	'T_Ate',	'IdEsc', 'T_Esp']].head(101)#, fila, registros_atenciones
+un_dia.sort_values(by='FH_Emi', inplace=False)[['FH_Emi',	'IdSerie',	'T_Ate',	'IdEsc', 'T_Esp']].head(101)#, fila, registros_atenciones
 
 #%%
