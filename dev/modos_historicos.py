@@ -98,7 +98,19 @@ tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') -
 for i , hora_actual in enumerate(reloj):
     total_mins_sim =i
     print(f"--------------------------------NUEVA hora_actual {hora_actual}---------------------")
-    supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion_un_escritorio)
+    supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion_un_escritorio)   
+    matcher_emision_reloj.match(hora_actual)
+    
+    if not matcher_emision_reloj.match_emisiones.empty:
+        print(f"nuevas emisiones")
+
+        emisiones      = matcher_emision_reloj.match_emisiones
+        
+        print(f"hora_actual: {hora_actual} - emisiones: {list(emisiones['FH_Emi'])}")
+        fila           = pd.concat([fila, emisiones])
+    else:
+        print(f"no hay nuevas emisiones hora_actual {hora_actual}")   
+    
     
     if (supervisor.filtrar_x_estado('atención') or  supervisor.filtrar_x_estado('pausa')):
         en_atencion            = supervisor.filtrar_x_estado('atención') or []
@@ -111,27 +123,9 @@ for i , hora_actual in enumerate(reloj):
     if disponibles:= supervisor.filtrar_x_estado('disponible'):
         conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in disponibles]
         print(f'iterar_escritorios_disponibles: {conectados_disponibles}')
-
         print('tiempo_actual_disponible',
-        {k: v['tiempo_actual_disponible'] for k,v in supervisor.escritorios_ON.items() if k in disponibles})
-        
+        {k: v['tiempo_actual_disponible'] for k,v in supervisor.escritorios_ON.items() if k in disponibles})        
         supervisor.iterar_escritorios_disponibles(conectados_disponibles)
-
-    matcher_emision_reloj.match(hora_actual)
-    
-    if not matcher_emision_reloj.match_emisiones.empty:
-        print(f"nuevas emisiones")
-
-        emisiones      = matcher_emision_reloj.match_emisiones
-        
-        print(f"hora_actual: {hora_actual} - emisiones: {list(emisiones['FH_Emi'])}")
-        fila           = pd.concat([fila, emisiones])
-    else:
-        print(f"no hay nuevas emisiones hora_actual {hora_actual}")   
-
-
-    if disponibles:= supervisor.filtrar_x_estado('disponible'):
-        print(f"hay escritorios disponibles: {disponibles}")
         
         for un_escritorio in disponibles:
             print(f"iterando en escritorio {un_escritorio}")           
@@ -139,7 +133,7 @@ for i , hora_actual in enumerate(reloj):
             for _, un_cliente in fila.iterrows():
                 print(f"iterando cliente {tuple(un_cliente)}")
                 
-                if un_cliente.IdSerie in supervisor.escritorios_ON[un_escritorio].get('skills', []) and  supervisor.filtrar_x_estado('disponible'):
+                if un_cliente.IdSerie in supervisor.escritorios_ON[un_escritorio].get('skills', []):# and  supervisor.filtrar_x_estado('disponible'):
                                     
                     fila                 = remove_selected_row(fila, un_cliente)
                     print(f"INICIANDO ATENCION de {tuple(un_cliente)}")
@@ -154,7 +148,11 @@ for i , hora_actual in enumerate(reloj):
                     
                     registros_atenciones = pd.concat([registros_atenciones, 
                     pd.DataFrame(un_cliente).T])
+                    
+                    break
+                    
                 else:
+                    print(f"!!la serie {un_cliente.IdSerie} no es skill del escritorio {un_escritorio}: {supervisor.escritorios_ON[un_escritorio].get('skills', [])}")
                     break
     else:
         print(f"NO hay escritorios disponibles")      
