@@ -138,7 +138,6 @@ for i , hora_actual in enumerate(reloj):
             
             un_cliente = FIFO(fila_filtrada)
             print(f"Cliente seleccionado {tuple(un_cliente)}")
-            print(f"{supervisor.filtrar_x_estado('disponible')}")                       
                                 
             fila                 = remove_selected_row(fila, un_cliente)
             print(f"INICIANDO ATENCION de {tuple(un_cliente)}")
