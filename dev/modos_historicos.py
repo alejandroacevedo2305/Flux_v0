@@ -84,7 +84,7 @@ planificacion_un_escritorio = plan_desde_skills(
 
 
 #%%
-hora_cierre           = "08:43:00"
+hora_cierre           = "09:19:00"
 reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
 matcher_emision_reloj = match_emisiones_reloj(un_dia)
@@ -106,7 +106,7 @@ for i , hora_actual in enumerate(reloj):
 
         emisiones      = matcher_emision_reloj.match_emisiones
         
-        print(f"hora_actual: {hora_actual} - emisiones: {list(emisiones['FH_Emi'])}")
+        print(f"hora_actual: {hora_actual} - series en emisiones: {list(emisiones['IdSerie'])}")
         fila           = pd.concat([fila, emisiones])
     else:
         print(f"no hay nuevas emisiones hora_actual {hora_actual}")   
@@ -121,41 +121,36 @@ for i , hora_actual in enumerate(reloj):
         supervisor.iterar_escritorios_bloqueados(escritorios_bloqueados_conectados)
 
     if disponibles:= supervisor.filtrar_x_estado('disponible'):
-        conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in disponibles]
+        conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in supervisor.filtrar_x_estado('disponible')]
         print(f'iterar_escritorios_disponibles: {conectados_disponibles}')
         print('tiempo_actual_disponible',
         {k: v['tiempo_actual_disponible'] for k,v in supervisor.escritorios_ON.items() if k in disponibles})        
         supervisor.iterar_escritorios_disponibles(conectados_disponibles)
         
-        for un_escritorio in disponibles:
-            print(f"iterando en escritorio {un_escritorio}")           
 
-            for _, un_cliente in fila.iterrows():
-                print(f"iterando cliente {tuple(un_cliente)}")
-                
-                if un_cliente.IdSerie in supervisor.escritorios_ON[un_escritorio].get('skills', []):# and  supervisor.filtrar_x_estado('disponible'):
-                                    
-                    fila                 = remove_selected_row(fila, un_cliente)
-                    print(f"INICIANDO ATENCION de {tuple(un_cliente)}")
-                    supervisor.iniciar_atencion(un_escritorio, un_cliente)
-                    print(f"---escritorios disponibles: { supervisor.filtrar_x_estado('disponible')}")
-                    print(f"---escritorios en atención: { supervisor.filtrar_x_estado('atención')}")
+        
+        for un_escritorio in conectados_disponibles:
+            print(f"iterando en escritorio {un_escritorio}")
+            fila_filtrada          = fila[fila['IdSerie'].isin(supervisor.escritorios_ON[un_escritorio].get('skills', []))]#filtrar_fila_por_skills(fila, supervisor.escritorios_ON[un_escritorio])
+            
+            if fila_filtrada.empty:
+                continue
+            
+            un_cliente = FIFO(fila_filtrada)
+            print(f"Cliente seleccionado {tuple(un_cliente)}")
+            print(f"{supervisor.filtrar_x_estado('disponible')}")                       
+                                
+            fila                 = remove_selected_row(fila, un_cliente)
+            print(f"INICIANDO ATENCION de {tuple(un_cliente)}")
+            supervisor.iniciar_atencion(un_escritorio, un_cliente)
+            print(f"---escritorios disponibles: { supervisor.filtrar_x_estado('disponible')}")
+            print(f"---escritorios en atención: { supervisor.filtrar_x_estado('atención')}")
 
 
-                    un_cliente.IdEsc     = int(un_escritorio)
-                    un_cliente.FH_AteIni = hora_actual
-                                       
-                    
-                    registros_atenciones = pd.concat([registros_atenciones, 
-                    pd.DataFrame(un_cliente).T])
-                    
-                    break
-                    
-                else:
-                    print(f"!!la serie {un_cliente.IdSerie} no es skill del escritorio {un_escritorio}: {supervisor.escritorios_ON[un_escritorio].get('skills', [])}")
-                    break
-    else:
-        print(f"NO hay escritorios disponibles")      
+            un_cliente.IdEsc     = int(un_escritorio)
+            un_cliente.FH_AteIni = hora_actual                               
+            registros_atenciones = pd.concat([registros_atenciones, 
+            pd.DataFrame(un_cliente).T])                   
 
     if i == 0:
         fila['espera'] = 0
