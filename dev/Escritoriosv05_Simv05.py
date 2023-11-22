@@ -213,7 +213,7 @@ class Escritoriosv05:
         for escri_dispon in escritorios_disponibles:               
             #avanzamos en un minuto el tiempo que lleva disponible.
             tiempo_disponible = next(self.escritorios_ON[escri_dispon]['contador_tiempo_disponible'])
-            self.escritorios_ON[escri_dispon]['tiempo_actual_disponible'] = tiempo_disponible
+            self.escritorios_ON[escri_dispon]['tiempo_actual_disponible'] = tiempo_disponible +1
         
 def simv05(un_dia, hora_cierre, planificacion):
 
