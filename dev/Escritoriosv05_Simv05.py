@@ -37,7 +37,7 @@ class Escritoriosv05:
                                             'porcentaje_actividad':      None,
                                             'duracion_inactividad':      None,                                    
                                             'contador_inactividad':      None,                                    
-                                            'duracion_pausas':            (1, 5, 15),  # --- pausas ---
+                                            'duracion_pausas':            None, #(1, 5, 15),  # --- pausas ---
                                             'probabilidad_pausas':        0,          # --- pausas ---
                                             'numero_pausas':              None,        # --- pausas ---
                                             'prioridades':                None,                                                                        
@@ -51,7 +51,7 @@ class Escritoriosv05:
         self.escritorios_ON                     = {}
         self.propiedades_tramos                 = []        
         
-    def aplicar_planificacion(self, hora_actual, planificacion):
+    def aplicar_planificacion(self, hora_actual, planificacion, tiempo_total):
         
         propiedades_tramo = dict()
         for idEsc, un_escritorio in planificacion.items():
@@ -81,6 +81,8 @@ class Escritoriosv05:
                                                                         int((1 - un_tramo['propiedades'].get('porcentaje_actividad', 0)) * 
                                                                             ((datetime.strptime('13:00:00', '%H:%M:%S')-datetime.strptime('12:00:00', '%H:%M:%S')).total_seconds()/60))
                                                                         )) if un_tramo['propiedades'].get('porcentaje_actividad') is not None else None,
+                                                                        
+                                            'duracion_pausas': (1, 5, 15),
                         #                     'contador_tiempo_disponible':  
                         # self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1)), 
                         

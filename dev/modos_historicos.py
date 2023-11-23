@@ -83,6 +83,26 @@ planificacion_un_escritorio = plan_desde_skills(
     , porcentaje_actividad = .9, inicio = '08:00:00')
 
 
+
+
+#%%
+supervisor    = Escritoriosv05(planificacion = planificacion_un_escritorio)
+hora_actual   = "08:00:00"       
+hora_cierre           = "10:43:00"
+tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') - 
+                            datetime.strptime(str(un_dia.FH_Emi.min().time()), '%H:%M:%S')).total_seconds() / 60
+supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion_un_escritorio, tiempo_total= tiempo_total)
+porcentaje_actividad = supervisor.escritorios_ON['0']['porcentaje_actividad']
+
+
+promedio_pausa = ((1-porcentaje_actividad
+                   )*tiempo_total)/ (tiempo_total/30)
+
+
+
+
+(promedio_pausa/2, promedio_pausa, 2*promedio_pausa)
+supervisor.escritorios_ON['0']
 #%%
 hora_cierre           = "09:19:00"
 reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
@@ -98,7 +118,7 @@ tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') -
 for i , hora_actual in enumerate(reloj):
     total_mins_sim =i
     print(f"--------------------------------NUEVA hora_actual {hora_actual}---------------------")
-    supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion_un_escritorio)   
+    supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion_un_escritorio, tiempo_total= tiempo_total)   
     matcher_emision_reloj.match(hora_actual)
     
     if not matcher_emision_reloj.match_emisiones.empty:
