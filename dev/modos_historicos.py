@@ -61,7 +61,7 @@ def plan_desde_skills(skills, inicio):
                     'propiedades': {
                         'skills': sks,
                         'configuracion_atencion': None,
-                        'porcentaje_actividad'  :  random.uniform(0.7, .8),
+                        'porcentaje_actividad'  :  random.uniform(0.78, .82),
                         'atributos_series':atributos_x_serie(
                             ids_series=sorted(list({val for sublist in skills.values() for val in sublist})), 
                             sla_porcen_user=None, 

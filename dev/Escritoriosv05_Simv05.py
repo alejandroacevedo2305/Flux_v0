@@ -88,7 +88,7 @@ class Escritoriosv05:
                                             
                                             
                                             
-                                            'probabilidad_pausas': 0 if un_tramo['propiedades'].get('porcentaje_actividad')==1 else 0.7,
+                                            'probabilidad_pausas': 0 if un_tramo['propiedades'].get('porcentaje_actividad')==1 else 0.6,
                                             #(1, 5, 15),
                         #                     'contador_tiempo_disponible':  
                         # self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1)), 
