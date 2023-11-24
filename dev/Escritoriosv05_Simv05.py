@@ -88,7 +88,7 @@ class Escritoriosv05:
                                             
                                             
                                             
-                                            'probabilidad_pausas': 0 if un_tramo['propiedades'].get('porcentaje_actividad')==1 else 0.6,
+                                            'probabilidad_pausas': 0 if un_tramo['propiedades'].get('porcentaje_actividad')==1 else 0.55,
                                             #(1, 5, 15),
                         #                     'contador_tiempo_disponible':  
                         # self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1)), 
@@ -121,7 +121,7 @@ class Escritoriosv05:
         self.escritorios[escritorio]['numero_de_atenciones'] += 1 #se guarda en self.escritorios para que no se resetee.
         self.escritorios_ON[escritorio]['numero_de_atenciones'] = self.escritorios[escritorio]['numero_de_atenciones'] 
         
-        print(f"el escritorio {escritorio} inició atención x {minutos_atencion} minutos ({cliente_seleccionado.T_Ate} segundos)")
+        #print(f"el escritorio {escritorio} inició atención x {minutos_atencion} minutos ({cliente_seleccionado.T_Ate} segundos)")
         
 
 
@@ -152,14 +152,14 @@ class Escritoriosv05:
             self.escritorios_ON[escritorio]['minutos_pausa']         = minutos_pausa#tiempo 
             
             
-        print(f"el escritorio {escritorio} inició pausa x {minutos_pausa} minutos")
+        #print(f"el escritorio {escritorio} inició pausa x {minutos_pausa} minutos")
 
             
     def iniciar_tiempo_disponible(self,escritorio):
         self.escritorios_ON[escritorio]['contador_tiempo_disponible'] = iter(count(start=0, step=1))
         self.escritorios_ON[escritorio]['estado']                     = 'disponible'#     
 
-        print(f"**el escritorio {escritorio} quedó **disponible**")
+        #print(f"**el escritorio {escritorio} quedó **disponible**")
 
         
     def iterar_escritorios_bloqueados(self, escritorios_bloqueados: List[str], tipo_inactividad:str = "Pausas"):
@@ -175,7 +175,8 @@ class Escritoriosv05:
                             self.iniciar_tiempo_disponible(escri_bloq)
                             
                         else:
-                            print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")      
+                            pass
+                            #print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")      
                                      
             if self.escritorios_ON[escri_bloq]['estado'] == 'atención':                
                 #avanzamos en un minuto el tiempo de atención
@@ -201,12 +202,14 @@ class Escritoriosv05:
                             self.iniciar_tiempo_disponible(escri_bloq)
                             
                         else:
-                            print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")    
+                            pass
+                            #print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")    
                                         
                     
                 else:
                     tiempo_atencion += 1
-                    print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_atencion'] - tiempo_atencion} min de atención") 
+                    pass
+                    #print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_atencion'] - tiempo_atencion} min de atención") 
                     
            
 
