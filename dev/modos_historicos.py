@@ -49,7 +49,7 @@ import math
 
 dataset                                 = DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz") # IdOficina=2)
 un_dia                                  = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-
+#%%
 ######################################
 #-----Modo parámetros históricos------
 #######################################
@@ -60,8 +60,8 @@ def plan_desde_skills(skills, inicio):
                     'termino':None,
                     'propiedades': {
                         'skills': sks,
-                        'configuracion_atencion': None,
-                        'porcentaje_actividad'  :  random.uniform(0.78, .82),
+                        'configuracion_atencion': "Alternancia", #"Rebalse", # "Alternancia", #"Rebalse", #random.choice(options) "FIFO",
+                        'porcentaje_actividad'  :  1, #random.uniform(0.78, .82),
                         'atributos_series':atributos_x_serie(
                             ids_series=sorted(list({val for sublist in skills.values() for val in sublist})), 
                             sla_porcen_user=None, 
@@ -92,11 +92,7 @@ tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') -
 supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion_un_escritorio, tiempo_total= tiempo_total)
 porcentaje_actividad = supervisor.escritorios_ON['0']['porcentaje_actividad']
 
-supervisor.escritorios_ON['1']
 
-
-
-#%%
 hora_cierre           = "09:19:00"
 reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
@@ -133,28 +129,43 @@ for i , hora_actual in enumerate(reloj):
         print(f"iterar_escritorios_bloqueados: {escritorios_bloqueados_conectados}")        
         supervisor.iterar_escritorios_bloqueados(escritorios_bloqueados_conectados)
 
-    if disponibles:= supervisor.filtrar_x_estado('disponible'):
+    if  supervisor.filtrar_x_estado('disponible'):
         conectados_disponibles       = [k for k,v in supervisor.escritorios_ON.items() if k in supervisor.filtrar_x_estado('disponible')]
         print(f'iterar_escritorios_disponibles: {conectados_disponibles}')
         print('tiempo_actual_disponible',
-        {k: v['tiempo_actual_disponible'] for k,v in supervisor.escritorios_ON.items() if k in disponibles})        
+        {k: v['tiempo_actual_disponible'] for k,v in supervisor.escritorios_ON.items() if k in conectados_disponibles})        
         supervisor.iterar_escritorios_disponibles(conectados_disponibles)
         
 
         
+        conectados_disponibles = balancear_carga_escritorios(
+                                                            {k: {'numero_de_atenciones':v['numero_de_atenciones'],
+                                                                'tiempo_actual_disponible': v['tiempo_actual_disponible']} 
+                                                            for k,v in supervisor.escritorios_ON.items() if k in conectados_disponibles}
+                                                            )        
+        
         for un_escritorio in conectados_disponibles:
             print(f"iterando en escritorio {un_escritorio}")
+            
+            configuracion_atencion = supervisor.escritorios_ON[un_escritorio]['configuracion_atencion']            
             fila_filtrada          = fila[fila['IdSerie'].isin(supervisor.escritorios_ON[un_escritorio].get('skills', []))]#filtrar_fila_por_skills(fila, supervisor.escritorios_ON[un_escritorio])
             
             if fila_filtrada.empty:
                 continue
-            
-            un_cliente = FIFO(fila_filtrada)
-            print(f"Cliente seleccionado {tuple(un_cliente)}")
-                                
+            elif configuracion_atencion == "FIFO":
+                un_cliente = FIFO(fila_filtrada)
+                print(f"Cliente seleccionado x FIFO {tuple(un_cliente)}")
+            elif configuracion_atencion == "Rebalse":
+                un_cliente = extract_highest_priority_and_earliest_time_row(fila_filtrada, supervisor.escritorios_ON[un_escritorio].get('prioridades'))
+                print(f"Cliente seleccionado x Rebalse {tuple(un_cliente)}")
+            elif configuracion_atencion == "Alternancia":
+                un_cliente = supervisor.escritorios_ON[un_escritorio]['pasos_alternancia'].buscar_cliente(fila_filtrada)
+                print(f"Cliente seleccionado x Alternancia {tuple(un_cliente)}")
+                                    
             fila                 = remove_selected_row(fila, un_cliente)
             print(f"INICIANDO ATENCION de {tuple(un_cliente)}")
             supervisor.iniciar_atencion(un_escritorio, un_cliente)
+            print(f"numero_de_atenciones de escritorio {un_escritorio}: {supervisor.escritorios_ON[un_escritorio]['numero_de_atenciones']}")
             print(f"---escritorios disponibles: { supervisor.filtrar_x_estado('disponible')}")
             print(f"---escritorios en atención: { supervisor.filtrar_x_estado('atención')}")
             print(f"---escritorios en pausa: { supervisor.filtrar_x_estado('pausa')}")
