@@ -76,8 +76,9 @@ def plan_desde_skills(skills, inicio):
 
 
 # hora_cierre           = "16:30:00"
+import logging
 
-def simv06(un_dia, hora_cierre, planificacion):
+def simv06(un_dia, hora_cierre, planificacion, log_path:str="dev/simv05.log"):
     
 
     un_dia.FH_AteIni = None
@@ -93,8 +94,7 @@ def simv06(un_dia, hora_cierre, planificacion):
     tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') - 
                                 datetime.strptime(str(un_dia.FH_Emi.min().time()), '%H:%M:%S')).total_seconds() / 60
 
-    import logging
-    logging.basicConfig(filename='dev/simv05.log', level=logging.INFO, filemode='w')
+    logging.basicConfig(filename=log_path, level=logging.INFO, filemode='w')
 
 
     for i , hora_actual in enumerate(reloj):
