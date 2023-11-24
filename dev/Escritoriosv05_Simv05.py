@@ -38,7 +38,7 @@ class Escritoriosv05:
                                             'duracion_inactividad':      None,                                    
                                             'contador_inactividad':      None,                                    
                                             'duracion_pausas':            None, #(1, 5, 15),  # --- pausas ---
-                                            'probabilidad_pausas':        0,          # --- pausas ---
+                                            'probabilidad_pausas':        None,          # --- pausas ---
                                             'numero_pausas':              None,        # --- pausas ---
                                             'prioridades':                None,                                                                        
                                             'pasos':                      None,               
@@ -82,7 +82,14 @@ class Escritoriosv05:
                                                                             ((datetime.strptime('13:00:00', '%H:%M:%S')-datetime.strptime('12:00:00', '%H:%M:%S')).total_seconds()/60))
                                                                         )) if un_tramo['propiedades'].get('porcentaje_actividad') is not None else None,
                                                                         
-                                            'duracion_pausas': (1, 5, 15),
+                                            'duracion_pausas': (lambda x: (int(x / 2), int(x), int(2 * x)))(
+                                                               ((1-un_tramo['propiedades'].get('porcentaje_actividad')
+                                                                )*tiempo_total)/ (tiempo_total/30)),
+                                            
+                                            
+                                            
+                                            'probabilidad_pausas': 0 if un_tramo['propiedades'].get('porcentaje_actividad')==1 else 0.7,
+                                            #(1, 5, 15),
                         #                     'contador_tiempo_disponible':  
                         # self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1)), 
                         
@@ -159,6 +166,17 @@ class Escritoriosv05:
 
         for escri_bloq in escritorios_bloqueados:
             #ver si está en atención:
+            
+            
+            if self.escritorios_ON[escri_bloq]['estado'] == 'pausa': 
+                        tiempo_pausa = next(self.escritorios_ON[escri_bloq]['contador_tiempo_pausa'], None)
+                        if tiempo_pausa is None: 
+                            #si termina tiempo en pausa pasa a estado disponible
+                            self.iniciar_tiempo_disponible(escri_bloq)
+                            
+                        else:
+                            print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")      
+                                     
             if self.escritorios_ON[escri_bloq]['estado'] == 'atención':                
                 #avanzamos en un minuto el tiempo de atención
                 tiempo_atencion = next(self.escritorios_ON[escri_bloq]['contador_tiempo_atencion'], None)
@@ -183,11 +201,15 @@ class Escritoriosv05:
                             self.iniciar_tiempo_disponible(escri_bloq)
                             
                         else:
-                            print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")                    
+                            print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")    
+                                        
                     
                 else:
                     tiempo_atencion += 1
                     print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_atencion'] - tiempo_atencion} min de atención") 
+                    
+           
+
 
             # #si el escritorio está en pausa:            
             # elif self.escritorios_ON[escri_bloq]['estado'] == 'pausa':

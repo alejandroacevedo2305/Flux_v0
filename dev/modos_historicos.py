@@ -54,14 +54,14 @@ un_dia                                  = dataset.un_dia("2023-05-15").sort_valu
 #-----Modo parámetros históricos------
 #######################################
 
-def plan_desde_skills(skills, porcentaje_actividad, inicio):    
+def plan_desde_skills(skills, inicio):    
     return  {id: [
                     {'inicio':inicio,
                     'termino':None,
                     'propiedades': {
                         'skills': sks,
                         'configuracion_atencion': None,
-                        'porcentaje_actividad'  :  porcentaje_actividad,
+                        'porcentaje_actividad'  :  random.uniform(0.7, .8),
                         'atributos_series':atributos_x_serie(
                             ids_series=sorted(list({val for sublist in skills.values() for val in sublist})), 
                             sla_porcen_user=None, 
@@ -71,7 +71,7 @@ def plan_desde_skills(skills, porcentaje_actividad, inicio):
                     }}
                         ] for id, sks in skills.items()}
 skills                      = obtener_skills(un_dia)
-planificacion               = plan_desde_skills(skills, porcentaje_actividad = .9, inicio = '08:00:00')
+planificacion               = plan_desde_skills(skills, inicio = '08:00:00')
 
 
 series = list({val for sublist in skills.values() for val in sublist})
@@ -80,12 +80,10 @@ planificacion_un_escritorio = plan_desde_skills(
     {'0': series[:round(len(series)/2)],
      '1': series[round(len(series)/2):],
      }
-    , porcentaje_actividad = .9, inicio = '08:00:00')
+    ,  inicio = '08:00:00')
 
 
 
-
-#%%
 supervisor    = Escritoriosv05(planificacion = planificacion_un_escritorio)
 hora_actual   = "08:00:00"       
 hora_cierre           = "10:43:00"
@@ -94,15 +92,10 @@ tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') -
 supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion_un_escritorio, tiempo_total= tiempo_total)
 porcentaje_actividad = supervisor.escritorios_ON['0']['porcentaje_actividad']
 
-
-promedio_pausa = ((1-porcentaje_actividad
-                   )*tiempo_total)/ (tiempo_total/30)
+supervisor.escritorios_ON['1']
 
 
 
-
-(promedio_pausa/2, promedio_pausa, 2*promedio_pausa)
-supervisor.escritorios_ON['0']
 #%%
 hora_cierre           = "09:19:00"
 reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
@@ -164,6 +157,8 @@ for i , hora_actual in enumerate(reloj):
             supervisor.iniciar_atencion(un_escritorio, un_cliente)
             print(f"---escritorios disponibles: { supervisor.filtrar_x_estado('disponible')}")
             print(f"---escritorios en atención: { supervisor.filtrar_x_estado('atención')}")
+            print(f"---escritorios en pausa: { supervisor.filtrar_x_estado('pausa')}")
+
 
 
             un_cliente.IdEsc     = int(un_escritorio)

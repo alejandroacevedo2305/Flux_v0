@@ -161,6 +161,8 @@ def actualizar_keys_tramo(original_dict, updates):
             original_dict[key]['porcentaje_actividad']                = value['porcentaje_actividad']
             original_dict[key]['duracion_inactividad']                = value['duracion_inactividad']
             original_dict[key]['contador_inactividad']                = value['contador_inactividad']
+            original_dict[key]['probabilidad_pausas']                = value['probabilidad_pausas']
+
 
 
 def separar_por_conexion(original_dict):  
