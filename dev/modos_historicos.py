@@ -60,8 +60,8 @@ def plan_desde_skills(skills, inicio):
                     'termino':None,
                     'propiedades': {
                         'skills': sks,
-                        'configuracion_atencion': "Alternancia", #"Rebalse", # "Alternancia", #"Rebalse", #random.choice(options) "FIFO",
-                        'porcentaje_actividad'  :  1, #random.uniform(0.78, .82),
+                        'configuracion_atencion': random.choice(["FIFO", "Rebalse", "Alternancia"]), #"Rebalse", # "Alternancia", #"Rebalse", #random.choice(["FIFO", "Rebalse", "Alternancia"]) "FIFO",
+                        'porcentaje_actividad'  : random.uniform(0.8, .9),
                         'atributos_series':atributos_x_serie(
                             ids_series=sorted(list({val for sublist in skills.values() for val in sublist})), 
                             sla_porcen_user=None, 
@@ -75,29 +75,11 @@ planificacion               = plan_desde_skills(skills, inicio = '08:00:00')
 
 
 series = list({val for sublist in skills.values() for val in sublist})
-
-planificacion_un_escritorio = plan_desde_skills(
-    {'0': series[:round(len(series)/2)],
-     '1': series[round(len(series)/2):],
-     }
-    ,  inicio = '08:00:00')
-
-
-
-supervisor    = Escritoriosv05(planificacion = planificacion_un_escritorio)
-hora_actual   = "08:00:00"       
-hora_cierre           = "10:43:00"
-tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') - 
-                            datetime.strptime(str(un_dia.FH_Emi.min().time()), '%H:%M:%S')).total_seconds() / 60
-supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion_un_escritorio, tiempo_total= tiempo_total)
-porcentaje_actividad = supervisor.escritorios_ON['0']['porcentaje_actividad']
-
-
-hora_cierre           = "09:19:00"
+hora_cierre           = "17:00:00"
 reloj                 = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
 registros_atenciones  = pd.DataFrame()
 matcher_emision_reloj = match_emisiones_reloj(un_dia)
-supervisor            = Escritoriosv05(planificacion = planificacion_un_escritorio)
+supervisor            = Escritoriosv05(planificacion = planificacion)
 registros_atenciones  = pd.DataFrame()
 fila                  = pd.DataFrame()
 
@@ -107,7 +89,7 @@ tiempo_total          = (datetime.strptime(hora_cierre, '%H:%M:%S') -
 for i , hora_actual in enumerate(reloj):
     total_mins_sim =i
     print(f"--------------------------------NUEVA hora_actual {hora_actual}---------------------")
-    supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion_un_escritorio, tiempo_total= tiempo_total)   
+    supervisor.aplicar_planificacion(hora_actual= hora_actual, planificacion = planificacion, tiempo_total= tiempo_total)   
     matcher_emision_reloj.match(hora_actual)
     
     if not matcher_emision_reloj.match_emisiones.empty:
@@ -181,18 +163,19 @@ for i , hora_actual in enumerate(reloj):
         fila['espera'] = 0
     else:
         fila['espera'] += 1*1
+        
+        
+        
+        
+        
 print(f"minutos simulados {total_mins_sim} minutos reales {tiempo_total}")
-fila, registros_atenciones
+pd.set_option('display.max_rows', None)
+
+len(registros_atenciones), len(fila)
+
 
 
 #%%
-on_off = True
-idEsc  = '7'
-
-
-if supervisor.escritorios_ON[idEsc]['conexion'] == on_off == True: 
-    print("hola")
-
 #self.escritorios_ON[idEsc]['contador_tiempo_disponible'] if {**self.escritorios_ON, **self.escritorios_OFF}[idEsc]['conexion'] == on_off == True else iter(count(start=0, step=1))
 
 
