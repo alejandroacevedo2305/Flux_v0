@@ -53,7 +53,7 @@ warnings.filterwarnings("ignore")
 #######################################
 
 
-def plan_desde_skills(skills, inicio):
+def plan_desde_skills(skills, inicio, porcentaje_actividad=None):
     return {
         id: [
             {
@@ -64,7 +64,7 @@ def plan_desde_skills(skills, inicio):
                     "configuracion_atencion": random.choice(
                         ["FIFO", "Rebalse", "Alternancia"]
                     ),  # "Rebalse", # "Alternancia", #"Rebalse", #random.choice(["FIFO", "Rebalse", "Alternancia"]) "FIFO",
-                    "porcentaje_actividad": random.uniform(0.8, 0.95),
+                    "porcentaje_actividad": random.uniform(0.80, 0.95) if porcentaje_actividad is None else porcentaje_actividad,
                     "atributos_series": atributos_x_serie(
                         ids_series=sorted(
                             list(

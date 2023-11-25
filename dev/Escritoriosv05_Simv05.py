@@ -82,7 +82,7 @@ class Escritoriosv05:
                                                                             ((datetime.strptime('13:00:00', '%H:%M:%S')-datetime.strptime('12:00:00', '%H:%M:%S')).total_seconds()/60))
                                                                         )) if un_tramo['propiedades'].get('porcentaje_actividad') is not None else None,
                                                                         
-                                            'duracion_pausas': (lambda x: (int(x / 2), int(x), int(2 * x)))(
+                                            'duracion_pausas': (lambda x: (int(x / 10), int(x)/2, int(1 * x)))(
                                                                ((1-un_tramo['propiedades'].get('porcentaje_actividad')
                                                                 )*tiempo_total)/ (tiempo_total/30)),
                                             
