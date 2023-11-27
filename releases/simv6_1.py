@@ -809,7 +809,7 @@ class Escritoriosv05:
         self.escritorios[escritorio]['numero_de_atenciones'] += 1 #se guarda en self.escritorios para que no se resetee.
         self.escritorios_ON[escritorio]['numero_de_atenciones'] = self.escritorios[escritorio]['numero_de_atenciones'] 
         
-        #print(f"el escritorio {escritorio} inició atención x {minutos_atencion} minutos ({cliente_seleccionado.T_Ate} segundos)")
+        logging.info(f"el escritorio {escritorio} inició atención x {minutos_atencion} minutos ({cliente_seleccionado.T_Ate} segundos)")
         
 
 
@@ -823,7 +823,7 @@ class Escritoriosv05:
         ]:
             return disponibilidad
         else:
-            #print(f"No hay escritorio {state}")
+            logging.info(f"No hay escritorio {state}")
             return False
     def iniciar_pausa(self, escritorio, tipo_inactividad:str = "Pausas", generador_pausa = generate_integer):
         # sourcery skip: extract-method, move-assign
@@ -840,14 +840,14 @@ class Escritoriosv05:
             self.escritorios_ON[escritorio]['minutos_pausa']         = minutos_pausa#tiempo 
             
             
-        #print(f"el escritorio {escritorio} inició pausa x {minutos_pausa} minutos")
+        logging.info(f"el escritorio {escritorio} inició pausa x {minutos_pausa} minutos")
 
             
     def iniciar_tiempo_disponible(self,escritorio):
         self.escritorios_ON[escritorio]['contador_tiempo_disponible'] = iter(count(start=0, step=1))
         self.escritorios_ON[escritorio]['estado']                     = 'disponible'#     
 
-        #print(f"**el escritorio {escritorio} quedó **disponible**")
+        logging.info(f"**el escritorio {escritorio} quedó **disponible**")
 
         
     def iterar_escritorios_bloqueados(self, escritorios_bloqueados: List[str], tipo_inactividad:str = "Pausas"):
@@ -864,7 +864,7 @@ class Escritoriosv05:
                             
                         else:
                             pass
-                            #print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")      
+                            logging.info(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")      
                                      
             if self.escritorios_ON[escri_bloq]['estado'] == 'atención':                
                 #avanzamos en un minuto el tiempo de atención
@@ -890,38 +890,16 @@ class Escritoriosv05:
                             self.iniciar_tiempo_disponible(escri_bloq)
                             
                         else:
-                            pass
-                            #print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")    
+                            
+                            logging.info(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa")
+                            pass    
                                         
                     
                 else:
                     tiempo_atencion += 1
-                    pass
-                    #print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_atencion'] - tiempo_atencion} min de atención") 
                     
-           
-
-
-            # #si el escritorio está en pausa:            
-            # elif self.escritorios_ON[escri_bloq]['estado'] == 'pausa':
-            #       #chequeamos si la inactividad es por pocentaje o pausas históricas
-            #      if tipo_inactividad == "Porcentaje":
-            #        #Avanzamos el contador de inactividad en un minuto
-            #        tiempo_inactividad = next(self.escritorios_ON[escri_bloq]['contador_inactividad'],None)
-            #        #si termina el tiempo de inactividad
-            #        if tiempo_inactividad is None:
-            #          #pasa a estado disponible
-            #          self.iniciar_tiempo_disponible(escri_bloq)
-            #      else: #pausas históricas                 
-            #         #iteramos contador_tiempo_pausa:
-            #         tiempo_pausa = next(self.escritorios_ON[escri_bloq]['contador_tiempo_pausa'], None)
-            #         if tiempo_pausa is None: 
-            #             #si termina tiempo en pausa pasa a estado disponible
-            #             self.iniciar_tiempo_disponible(escri_bloq)
-                        
-            #         else:
-            #             print(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_pausa'] - tiempo_pausa} min de pausa") 
-
+                    logging.info(f"al escritorio {escri_bloq} le quedan {self.escritorios_ON[escri_bloq]['minutos_atencion'] - tiempo_atencion} min de atención") 
+                    pass
                         
     def iterar_escritorios_disponibles(self, escritorios_disponibles: List[str]):
         
@@ -936,7 +914,7 @@ class Escritoriosv05:
 import logging
 
 
-def simv06(un_dia, hora_cierre, planificacion, log_path: str = "dev/simv05.log"):
+def simv06(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.log"):
     un_dia["FH_AteIni"] = None
     un_dia["FH_AteFin"] = None
     un_dia["IdEsc"] = None

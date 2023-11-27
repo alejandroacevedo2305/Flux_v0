@@ -1,0 +1,509 @@
+
+@VERSION = 8001
+@ID_DATABASE = V24_Fonav30
+@ID_OFICINA = 2
+@FECHA = 2023-09-14
+# ALT FECHA: @FECHA = 2023-05-15
+### 
+
+GET http://20.66.42.147:{{VERSION}}/databases_disponibles/ HTTP/1.1
+
+###
+
+GET http://20.66.42.147:{{VERSION}}/Planificacion/{{ID_DATABASE}}/{{ID_OFICINA}}/
+
+###
+GET http://20.66.42.147:{{VERSION}}/Planificacion_old/{{ID_DATABASE}}/{{ID_OFICINA}}/
+
+### TESTEAR EL SIMULADOR
+POST http://20.66.42.147:{{VERSION}}/Simulador/{{ID_DATABASE}}/{{ID_OFICINA}}/{{FECHA}}/forecaster={forecaster}/
+Content-Type: application/json
+
+{
+  "planificacion": [
+    [
+      {
+        "IdEsc": 1,
+        "series_esc": [
+          {
+            "IdSerie": 5,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 10,
+            "prioridad": 3,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 11,
+            "prioridad": 4,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 12,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 2,
+        "series_esc": [
+          {
+            "IdSerie": 5,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 10,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 11,
+            "prioridad": 3,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 12,
+            "prioridad": 4,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 3,
+        "series_esc": [
+          {
+            "IdSerie": 5,
+            "prioridad": 3,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 10,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 11,
+            "prioridad": 4,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 12,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "Alternancia",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 4,
+        "series_esc": [
+          {
+            "IdSerie": 5,
+            "prioridad": 3,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 10,
+            "prioridad": 4,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 11,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 12,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 5,
+        "series_esc": [
+          {
+            "IdSerie": 10,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 6,
+        "series_esc": [
+          {
+            "IdSerie": 10,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 12,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 7,
+        "series_esc": [
+          {
+            "IdSerie": 10,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "Alternancia",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 8,
+        "series_esc": [
+          {
+            "IdSerie": 5,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 10,
+            "prioridad": 3,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 11,
+            "prioridad": 4,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 12,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 9,
+        "series_esc": [
+          {
+            "IdSerie": 5,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 10,
+            "prioridad": 3,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 11,
+            "prioridad": 4,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 12,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "Alternancia",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 10,
+        "series_esc": [
+          {
+            "IdSerie": 10,
+            "prioridad": 3,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 14,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 17,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 11,
+        "series_esc": [
+          {
+            "IdSerie": 10,
+            "prioridad": 3,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 14,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 17,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 12,
+        "series_esc": [
+          {
+            "IdSerie": 14,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 17,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 13,
+        "series_esc": [
+          {
+            "IdSerie": 14,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          },
+          {
+            "IdSerie": 17,
+            "prioridad": 2,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 14,
+        "series_esc": [
+          {
+            "IdSerie": 10,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "Alternancia",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ],
+    [
+      {
+        "IdEsc": 15,
+        "series_esc": [
+          {
+            "IdSerie": 11,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "00:00:01",
+            "termino": "23:59:59"
+          }
+        ],
+        "configuracion_atencion": "Alternancia",
+        "inicio": "00:00:01",
+        "termino": "23:59:59",
+        "porcentaje_actividad": 1.0
+      }
+    ]
+  ],
+  "series": [
+    {
+      "IdSerie": 5,
+      "serie": "Embarazadas, Tercera Edad y Movilidad Reducida",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    },
+    {
+      "IdSerie": 10,
+      "serie": "Inscripción, Tramos y Cargas",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    },
+    {
+      "IdSerie": 11,
+      "serie": "Asesoría y Consultas",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    },
+    {
+      "IdSerie": 12,
+      "serie": "Programas Médicos y Reembolsos",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    },
+    {
+      "IdSerie": 14,
+      "serie": "Bono Efectivo",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    },
+    {
+      "IdSerie": 17,
+      "serie": "Bono Tarjeta",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    }
+  ]
+}
+
