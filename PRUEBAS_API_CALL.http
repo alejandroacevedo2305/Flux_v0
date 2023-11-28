@@ -1,23 +1,29 @@
 
-@VERSION = 8001
+@VERSION = 8000
 @ID_DATABASE = V24_Fonav30
 @ID_OFICINA = 2
-@FECHA = 2023-09-14
+@FECHA = 2023-05-15
 # ALT FECHA: @FECHA = 2023-05-15
 ### 
 
-GET http://20.66.42.147:{{VERSION}}/databases_disponibles/ HTTP/1.1
+GET http://20.66.42.147:{{VERSION}}/databases_disponibles/
 
-###
+### GET PLANIFICACION (fotmato nuevo)
 
 GET http://20.66.42.147:{{VERSION}}/Planificacion/{{ID_DATABASE}}/{{ID_OFICINA}}/
 
-###
+### GET PLANIFICACION
 GET http://20.66.42.147:{{VERSION}}/Planificacion_old/{{ID_DATABASE}}/{{ID_OFICINA}}/
 
-### TESTEAR EL SIMULADOR
+
+### FAIL: PLANIFICACION QUE FALLA PORQUE LA OFICINA [999] NO EXISTE
+GET http://20.66.42.147:{{VERSION}}/Planificacion_old/{{ID_DATABASE}}/999/
+
+
+### TESTEAR EL SIMULADOR DE FORMA COMPLETA
 POST http://20.66.42.147:{{VERSION}}/Simulador/{{ID_DATABASE}}/{{ID_OFICINA}}/{{FECHA}}/forecaster={forecaster}/
 Content-Type: application/json
+# accept: application/json
 
 {
   "planificacion": [
@@ -501,6 +507,160 @@ Content-Type: application/json
     {
       "IdSerie": 17,
       "serie": "Bono Tarjeta",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    }
+  ]
+}
+
+### SIMULADOR CON FAIL POR QUE LA SERIE [555] NO EXISTE. SERIE [5] SI EXISTE
+POST http://20.66.42.147:{{VERSION}}/Simulador/{{ID_DATABASE}}/{{ID_OFICINA}}/{{FECHA}}/forecaster={forecaster}/
+Content-Type: application/json
+
+{
+  "planificacion": [
+    [
+      {
+        "IdEsc": 5,
+        "series_esc": [
+          {
+            "IdSerie": 5,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "08:00:00",
+            "termino": "18:00:00"
+          },
+          {
+            "IdSerie": 555,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "08:00:00",
+            "termino": "18:00:00"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "08:00:00",
+        "termino": "18:00:00",
+        "porcentaje_actividad": 0.8
+      }
+    ]
+  ],
+  "series": [
+    {
+      "IdSerie": 5,
+      "serie": "",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    },
+    {
+      "IdSerie": 555,
+      "serie": "",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    }
+  ]
+}
+
+### FAIL: QUE FALLA PORQUE LA SERIE [1] NO EXISTE
+POST http://20.66.42.147:{{VERSION}}/Simulador/{{ID_DATABASE}}/{{ID_OFICINA}}/{{FECHA}}/forecaster={forecaster}/
+Content-Type: application/json
+
+{
+  "planificacion": [
+    [
+      {
+        "IdEsc": 5,
+        "series_esc": [
+          {
+            "IdSerie": 1,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "08:00:00",
+            "termino": "18:00:00"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "08:00:00",
+        "termino": "18:00:00",
+        "porcentaje_actividad": 0.8
+      }
+    ]
+  ],
+  "series": [
+    {
+      "IdSerie": 1,
+      "serie": "",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    }
+  ]
+}
+
+
+### FAIL: QUE FALLA PORQUE LA OFICINA [999] NO EXISTE
+POST http://20.66.42.147:{{VERSION}}/Simulador/{{ID_DATABASE}}/999/{{FECHA}}/forecaster={forecaster}/
+Content-Type: application/json
+
+{
+  "planificacion": [
+    [
+      {
+        "IdEsc": 5,
+        "series_esc": [
+          {
+            "IdSerie": 5,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "08:00:00",
+            "termino": "18:00:00"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "08:00:00",
+        "termino": "18:00:00",
+        "porcentaje_actividad": 0.8
+      }
+    ]
+  ],
+  "series": [
+    {
+      "IdSerie": 5,
+      "serie": "",
+      "tiempo_maximo_espera": 600,
+      "sla_objetivo": 0.8
+    }
+  ]
+}
+
+### GET QUE FUNCIONA
+POST http://20.66.42.147:{{VERSION}}/Simulador/{{ID_DATABASE}}/{{ID_OFICINA}}/{{FECHA}}/forecaster={forecaster}/
+Content-Type: application/json
+
+{
+  "planificacion": [
+    [
+      {
+        "IdEsc": 5,
+        "series_esc": [
+          {
+            "IdSerie": 5,
+            "prioridad": 1,
+            "pasos": 1,
+            "inicio": "08:00:00",
+            "termino": "18:00:00"
+          }
+        ],
+        "configuracion_atencion": "FIFO",
+        "inicio": "08:00:00",
+        "termino": "18:00:00",
+        "porcentaje_actividad": 0.8
+      }
+    ]
+  ],
+  "series": [
+    {
+      "IdSerie": 5,
+      "serie": "",
       "tiempo_maximo_espera": 600,
       "sla_objetivo": 0.8
     }

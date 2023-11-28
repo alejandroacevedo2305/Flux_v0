@@ -657,6 +657,7 @@ def generar_planificacion(un_dia,  modos: list    = ['FIFO','Alternancia', 'Reba
 from datetime import timedelta
 
 def reloj_rango_horario(start: str, end: str):
+    
     start_time = datetime.strptime(start, '%H:%M:%S').time()
     end_time = datetime.strptime(end, '%H:%M:%S').time()
     start_minutes = start_time.hour * 60 + start_time.minute
