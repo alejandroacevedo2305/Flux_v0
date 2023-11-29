@@ -268,18 +268,21 @@ class pasos_alternancia_v03():
         self.posicion_actual        = self.pasos.iloc[next(self.iterador_posicion)]
         serie_en_la_posicion_actual = self.posicion_actual.serie
         if not     fila_filtrada[fila_filtrada.IdSerie.isin([serie_en_la_posicion_actual])].empty:
-            #print(f"serie_en_la_posicion_actual  {self.posicion_actual.serie} coincidió con cliente(s)")
+            logging.info(f"modo alternancia: serie_en_la_posicion_actual  {self.posicion_actual.serie} coincidió con cliente(s)")
             #de los clientes q coincidieron retornar el que llegó primero
             return fila_filtrada[fila_filtrada.IdSerie.isin([serie_en_la_posicion_actual])].sort_values(by='FH_Emi', ascending=True).iloc[0,]
         else:
-            #print(f"serie_en_la_posicion_actual no conincidió, buscando en otros pasos")
+            logging.info(f"modo alternancia: serie_en_la_posicion_actual ({serie_en_la_posicion_actual}) no conincidió con la fila filtrada {tuple(fila_filtrada.IdSerie)}, buscando en otros pasos")
             start_position                = self.posicion_actual.posicion
+            logging.info(f"modo alternancia: instanciando one_cycle_iterator con pasos de series = {tuple(self.pasos.serie)} start_position = {start_position}")
             single_cycle_iterator_x_pasos = one_cycle_iterator(self.pasos.serie, start_position)            
-            for serie_en_un_paso in single_cycle_iterator_x_pasos:                
+            for serie_en_un_paso in single_cycle_iterator_x_pasos: 
+                logging.info(f"modo alternancia: iterando serie_en_un_paso -> {serie_en_un_paso}")
                 if not     fila_filtrada[fila_filtrada.IdSerie.isin([serie_en_un_paso])].empty:
-                    #print(f"serie {serie_en_un_paso} en otro paso coincidió con cliente")
+                    logging.info(f"modo alternancia: serie {serie_en_un_paso} iterando en otro paso coincidió con cliente")
                     return fila_filtrada[fila_filtrada.IdSerie.isin([serie_en_un_paso])].sort_values(by='FH_Emi', ascending=True).iloc[0,]
             else:
+                logging.info(f"modo alternancia: fila_filtrada.IdSerie= {fila_filtrada.IdSerie} serie_en_un_paso: {serie_en_un_paso} en otro paso coincidió con cliente")
                 raise ValueError(
                 "Las series del escritorio no coinciden con la serie del cliente. No se puede atender. ESTO NO DE DEBERIA PASAR, EL FILTRO TIENE QUE ESTAR FUERA DEL OBJETO.")
 
