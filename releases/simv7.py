@@ -336,7 +336,7 @@ def atributos_x_serie(ids_series, sla_porcen_user=None, sla_corte_user=None, pas
 
     return att_x_s.atributo(sla_porcen_user, 'sla_porcen', 70, 85).atributo(
             sla_corte_user, 'sla_corte', 10*60, 30*60).atributo(
-                pasos_user, 'pasos',1,5).prioridades(prioridades_user).atributos_x_series
+                pasos_user, 'pasos',1,3).prioridades(prioridades_user).atributos_x_series
 
 def obtener_skills(un_dia):   
 
@@ -715,11 +715,11 @@ class match_emisiones_reloj_historico():
 class Escritoriosv07:    
     def __init__(self,
                  planificacion: dict,
-                 #params_pausas:tuple = (1, 2, 4), 
+                 params_pausas:list = [1/10,1/2,1], 
                  factor_pausas: float = 1,
                  probabilidad_pausas:float= 0.55,
                  ):
-        #self.duracion_pausas          = params_pausas 
+        self.params_pausas            = params_pausas 
         self.factor_pausas            = factor_pausas
         self.probabilidad_pausas      = probabilidad_pausas      
         self.planificacion            = planificacion
@@ -782,7 +782,7 @@ class Escritoriosv07:
                                                                         
                                             'duracion_pausas': 
                                                 tuple(np.array((lambda x: 
-                                                        (int(x / 10), int(x)/2, int(1 * x)))(
+                                                        (int(self.params_pausas[0] *x), int(self.params_pausas[1] *x), int(self.params_pausas[2] * x)))(
                                                             ((1-un_tramo['propiedades'].get('porcentaje_actividad')
                                                             )*self.factor_pausas*tiempo_total))).astype(int)),
                                                 
@@ -935,7 +935,7 @@ class Escritoriosv07:
 import logging
 
 
-def simv7(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.log", probabilidad_pausas:float=0.5, factor_pausas:float=.06):
+def simv7(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.log", probabilidad_pausas:float=0.5, factor_pausas:float=.06, params_pausas:list=[1/10,1/2,1]):
     un_dia["FH_AteIni"] = None
     un_dia["FH_AteFin"] = None
     un_dia["IdEsc"] = None
@@ -943,7 +943,7 @@ def simv7(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.lo
     reloj = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
     registros_atenciones = pd.DataFrame()
     matcher_emision_reloj = match_emisiones_reloj(un_dia)
-    supervisor = Escritoriosv07(planificacion=planificacion, probabilidad_pausas=probabilidad_pausas, factor_pausas=factor_pausas)
+    supervisor = Escritoriosv07(planificacion=planificacion, probabilidad_pausas=probabilidad_pausas, factor_pausas=factor_pausas, params_pausas=params_pausas)
     registros_atenciones = pd.DataFrame()
     fila = pd.DataFrame()
 

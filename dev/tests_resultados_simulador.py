@@ -12,7 +12,7 @@ import random
 
 from data.mocks import planificacion_simulador
 
-import releases.simv6_1 as sim
+#import releases.simv6_1 as sim
 from src.viz_utils import sla_x_serie, plot_all_reports_two_lines, plot_count_and_avg_two_lines
 
 
@@ -99,6 +99,7 @@ def plot_all_reports_two_lines(df_pairs_1, df_pairs_2, label_1, label_2, color_1
     fig.suptitle(main_title, y=.98, fontsize=12)
     plt.show()
 
+import releases.simv7 as sim
 
 dataset = sim.DatasetTTP.desde_csv_atenciones(
     "data/fonasa_monjitas.csv.gz")  # 
@@ -121,9 +122,9 @@ esperas_x_serie = [(registros_atenciones[registros_atenciones.IdSerie == s].drop
   s)
  for s in series]
 
-#%%
-sim.plan_desde_skills
-#%%
+
+
+
 ######################
 #------Simulacion-----
 ######################
@@ -131,13 +132,21 @@ sim.plan_desde_skills
 start_time = time.time()
 hora_cierre = "15:30:00"
 # planificacion = sim.plan_desde_skills(skills, inicio="08:00:00", porcentaje_actividad=1)
-registros_atenciones_simulacion, fila = sim.simv06(
-    el_dia_real, hora_cierre, planificacion_simulador)#, log_path="dev/simulacion.log")
+
+
+
+registros_atenciones_simulacion, fila = sim.simv7(
+    el_dia_real, hora_cierre, 
+    sim.plan_desde_skills(skills=skills , inicio = '08:00:00', porcentaje_actividad=.8),
+    probabilidad_pausas = 0.65, 
+    factor_pausas       = .06,
+    params_pausas       = [0, 1/5, 1/2])
+    #, log_path="dev/simulacion.log")
 print(f"{len(registros_atenciones_simulacion) = }, {len(fila) = }")
 end_time = time.time()
 print(f"tiempo total: {end_time - start_time:.1f} segundos")
 
-#%%
+
 registros_atenciones_simulacion = registros_atenciones_simulacion.astype({'FH_Emi': 'datetime64[s]', 'IdSerie': 'int', 'espera': 'int'})[["FH_Emi","IdSerie","espera"]].reset_index(drop=True)
 
 esperas_x_serie_simulados = [(registros_atenciones_simulacion[registros_atenciones_simulacion.IdSerie == s].drop('IdSerie',axis=1, inplace = False
@@ -162,5 +171,5 @@ for i, (pair_1, pair_2) in enumerate(zip(df_pairs_1, df_pairs_2)):
 
 
 fig.subplots_adjust(hspace=1.,  wspace=.5)  
-fig.suptitle(t = 'main_title', y=.98, fontsize=12)
+fig.suptitle(t = 'FONASA/Monjitas, 2023-05-15.', y=.98, fontsize=12)
 plt.show()
