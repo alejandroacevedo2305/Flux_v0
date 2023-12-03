@@ -8,39 +8,12 @@ import warnings
 
 warnings.filterwarnings("ignore")
 import time
+import random
+
 from data.mocks import planificacion_simulador
 
 import releases.simv6_1 as sim
 from src.viz_utils import sla_x_serie, plot_all_reports_two_lines, plot_count_and_avg_two_lines
-
-dataset = sim.DatasetTTP.desde_csv_atenciones(
-    "data/fonasa_monjitas.csv.gz"
-)  # 
-
-dataset = sim.DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
-el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-skills = sim.obtener_skills(el_dia_real)
-
-
-series = sorted(list({val for sublist in skills.values() for val in sublist}))
-registros_atenciones = pd.DataFrame()
-tabla_atenciones = el_dia_real[['FH_Emi', 'IdSerie', 'T_Esp']]
-tabla_atenciones.columns = ['FH_Emi', 'IdSerie', 'espera']
-registros_atenciones = tabla_atenciones.copy()
-registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int)
-registros_x_serie = [registros_atenciones[registros_atenciones.IdSerie == s] for s in series]
-df_pairs_his = [(sla_x_serie(r_x_s, '1H', corte=20), s) for r_x_s, s in zip(registros_x_serie, series)]
-
-
-# plot_all_reports_two_lines(df_pairs_1 = [df_pairs_his[idx] for idx in [0,1,2,3,4,5, 0]], 
-#                         df_pairs_2 = [df_pairs_his[idx] for idx in    [5,4,3,2,1,0, 1]], 
-#                         label_1="SLA histórico", label_2="SLA con IA", 
-#                         color_1="navy", color_2="purple", 
-#                         n_rows=4, n_cols=2, height=10, width=12, main_title="FONASA, Monjitas, 2023-05-15.")
-
-import matplotlib.pyplot as plt
-fig, axs = plt.subplots(nrows=4, ncols=2, figsize=(10,12))
-axs      = axs.ravel() 
 
 
 
@@ -97,7 +70,7 @@ def plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, ax1
 
     ax1.set_xlabel('')
     ax1.set_ylabel('Demanda (#)', color='black')
-    ax2.set_ylabel('SLA (%)', color='black')    
+    ax2.set_ylabel('T espera', color='black')    
     ax2.set_ylim([0, 1.1*pd.concat([df_avg_1, df_avg_2], axis = 0).espera.max()])
     ax1.set_xticks([rect.get_x() + rect.get_width() / 2 for rect in bars])
     ax1.set_xticklabels(x_labels, rotation=40, ha="right", rotation_mode="anchor", size =7)
@@ -126,6 +99,21 @@ def plot_all_reports_two_lines(df_pairs_1, df_pairs_2, label_1, label_2, color_1
     fig.suptitle(main_title, y=.98, fontsize=12)
     plt.show()
 
+
+dataset = sim.DatasetTTP.desde_csv_atenciones(
+    "data/fonasa_monjitas.csv.gz")  # 
+
+dataset = sim.DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
+el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+skills = sim.obtener_skills(el_dia_real)
+series = sorted(list({val for sublist in skills.values() for val in sublist}))
+registros_atenciones = pd.DataFrame()
+tabla_atenciones = el_dia_real[['FH_Emi', 'IdSerie', 'T_Esp']]
+tabla_atenciones.columns = ['FH_Emi', 'IdSerie', 'espera']
+registros_atenciones = tabla_atenciones.copy()
+registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int)
+#registros_x_serie = [registros_atenciones[registros_atenciones.IdSerie == s] for s in series]
+
 esperas_x_serie = [(registros_atenciones[registros_atenciones.IdSerie == s].drop('IdSerie',axis=1, inplace = False
                                                                ).set_index('FH_Emi', inplace=False).resample('1H').count().rename(columns={'espera': 'demanda'}).reset_index(),
   registros_atenciones[registros_atenciones.IdSerie == s].drop('IdSerie',axis=1, inplace = False
@@ -133,32 +121,18 @@ esperas_x_serie = [(registros_atenciones[registros_atenciones.IdSerie == s].drop
   s)
  for s in series]
 
-import random
-# df_pairs_1 = random.sample(esperas_x_serie, len(esperas_x_serie))
-# df_pairs_2 = random.sample(esperas_x_serie, len(esperas_x_serie))
-# for i, (pair_1, pair_2) in enumerate(zip(df_pairs_1, df_pairs_2)):
-#     print(pair_1)
-#     # Unpacking the tuple correctly
-#     df_count_1, df_avg_1, _ = pair_1
-#     df_count_2, df_avg_2, serie = pair_2
-#     plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, axs[i], "hola1", "hola2", "navy", "purple", serie=serie)
-
-
-
-# fig.subplots_adjust(hspace=1.1,  wspace=.35)  
-# fig.suptitle(t = 'main_title', y=.98, fontsize=12)
-# plt.show()
 #%%
-
+sim.plan_desde_skills
+#%%
 ######################
 #------Simulacion-----
 ######################
-un_dia = dataset.un_dia("2023-05-15").sort_values(by="FH_Emi", inplace=False)
+#un_dia = dataset.un_dia("2023-05-15").sort_values(by="FH_Emi", inplace=False)
 start_time = time.time()
 hora_cierre = "15:30:00"
 # planificacion = sim.plan_desde_skills(skills, inicio="08:00:00", porcentaje_actividad=1)
 registros_atenciones_simulacion, fila = sim.simv06(
-    un_dia, hora_cierre, planificacion_simulador)#, log_path="dev/simulacion.log")
+    el_dia_real, hora_cierre, planificacion_simulador)#, log_path="dev/simulacion.log")
 print(f"{len(registros_atenciones_simulacion) = }, {len(fila) = }")
 end_time = time.time()
 print(f"tiempo total: {end_time - start_time:.1f} segundos")
@@ -174,7 +148,7 @@ esperas_x_serie_simulados = [(registros_atenciones_simulacion[registros_atencion
  for s in series]
 
 import matplotlib.pyplot as plt
-fig, axs = plt.subplots(nrows=4, ncols=2, figsize=(10,12))
+fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(10,10))
 axs      = axs.ravel() 
 df_pairs_1 = esperas_x_serie #random.sample(esperas_x_serie, len(esperas_x_serie))
 df_pairs_2 = esperas_x_serie_simulados #random.sample(registros_atenciones_simulacion, len(esperas_x_serie))
@@ -183,10 +157,10 @@ for i, (pair_1, pair_2) in enumerate(zip(df_pairs_1, df_pairs_2)):
     # Unpacking the tuple correctly
     df_count_1, df_avg_1, _ = pair_1
     df_count_2, df_avg_2, serie = pair_2
-    plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, axs[i], "hola1", "hola2", "navy", "purple", serie=serie)
+    plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, axs[i], "histórico", "simulado", "navy", "purple", serie=serie)
 
 
 
-fig.subplots_adjust(hspace=1.1,  wspace=.35)  
+fig.subplots_adjust(hspace=1.,  wspace=.5)  
 fig.suptitle(t = 'main_title', y=.98, fontsize=12)
 plt.show()

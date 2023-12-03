@@ -53,34 +53,34 @@ warnings.filterwarnings("ignore")
 #######################################
 
 
-def plan_desde_skills(skills, inicio, porcentaje_actividad=None):
-    return {
-        id: [
-            {
-                "inicio": inicio,
-                "termino": None,
-                "propiedades": {
-                    "skills": sks,
-                    "configuracion_atencion": random.choice(
-                        ["FIFO", "Rebalse", "Alternancia"]
-                    ),  # "Rebalse", # "Alternancia", #"Rebalse", #random.choice(["FIFO", "Rebalse", "Alternancia"]) "FIFO",
-                    "porcentaje_actividad": random.uniform(0.80, 0.95) if porcentaje_actividad is None else porcentaje_actividad,
-                    "atributos_series": atributos_x_serie(
-                        ids_series=sorted(
-                            list(
-                                {val for sublist in skills.values() for val in sublist}
-                            )
-                        ),
-                        sla_porcen_user=None,
-                        sla_corte_user=None,
-                        pasos_user=None,
-                        prioridades_user=None,
-                    ),
-                },
-            }
-        ]
-        for id, sks in skills.items()
-    }
+# def plan_desde_skills(skills, inicio, porcentaje_actividad=None):
+#     return {
+#         id: [
+#             {
+#                 "inicio": inicio,
+#                 "termino": None,
+#                 "propiedades": {
+#                     "skills": sks,
+#                     "configuracion_atencion": random.choice(
+#                         ["FIFO", "Rebalse", "Alternancia"]
+#                     ),  # "Rebalse", # "Alternancia", #"Rebalse", #random.choice(["FIFO", "Rebalse", "Alternancia"]) "FIFO",
+#                     "porcentaje_actividad": random.uniform(0.80, 0.95) if porcentaje_actividad is None else porcentaje_actividad,
+#                     "atributos_series": atributos_x_serie(
+#                         ids_series=sorted(
+#                             list(
+#                                 {val for sublist in skills.values() for val in sublist}
+#                             )
+#                         ),
+#                         sla_porcen_user=None,
+#                         sla_corte_user=None,
+#                         pasos_user=None,
+#                         prioridades_user=None,
+#                     ),
+#                 },
+#             }
+#         ]
+#         for id, sks in skills.items()
+#     }
 
 
 # skills                      = obtener_skills(un_dia)
