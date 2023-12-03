@@ -935,7 +935,7 @@ class Escritoriosv07:
 import logging
 
 
-def simv7(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.log", probabilidad_pausas:float=0.55, factor_pausas:float=1):
+def simv7(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.log", probabilidad_pausas:float=0.5, factor_pausas:float=.06):
     un_dia["FH_AteIni"] = None
     un_dia["FH_AteFin"] = None
     un_dia["IdEsc"] = None
