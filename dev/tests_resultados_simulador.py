@@ -40,7 +40,7 @@ def plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, ax1
     min_len_2 = min(len(x_labels), len(df_avg_2['espera']))
     
     # Use the minimum length to slice the data and plot
-    ax2.plot(x_labels[:min_len_1], df_avg_1['espera'][:min_len_1], color=color_1, marker='o', linestyle='--', label=label_1)
+    ax2.plot(x_labels[:min_len_1],df_avg_1['espera'][:min_len_1], color=color_1, marker='o', linestyle='--', label=label_1)
     ax2.plot(x_labels[:min_len_2], df_avg_2['espera'][:min_len_2], color=color_2, marker='o', linestyle='-', label=label_2)
     # Add a transparent shaded area between the two lines
     # Find the shorter length among the two series
@@ -70,7 +70,7 @@ def plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, ax1
 
     ax1.set_xlabel('')
     ax1.set_ylabel('Demanda (#)', color='black')
-    ax2.set_ylabel('T espera', color='black')    
+    ax2.set_ylabel('T. espera (min)', color='black')    
     ax2.set_ylim([0, 1.1*pd.concat([df_avg_1, df_avg_2], axis = 0).espera.max()])
     ax1.set_xticks([rect.get_x() + rect.get_width() / 2 for rect in bars])
     ax1.set_xticklabels(x_labels, rotation=40, ha="right", rotation_mode="anchor", size =7)
@@ -106,6 +106,7 @@ dataset = sim.DatasetTTP.desde_csv_atenciones(
 
 dataset = sim.DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
 el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+#%%
 skills = sim.obtener_skills(el_dia_real)
 series = sorted(list({val for sublist in skills.values() for val in sublist}))
 registros_atenciones = pd.DataFrame()
@@ -124,7 +125,7 @@ esperas_x_serie = [(registros_atenciones[registros_atenciones.IdSerie == s].drop
 
 
 
-
+#%%
 ######################
 #------Simulacion-----
 ######################
