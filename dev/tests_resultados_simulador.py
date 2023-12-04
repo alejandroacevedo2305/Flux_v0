@@ -133,11 +133,11 @@ start_time = time.time()
 hora_cierre = "15:30:00"
 # planificacion = sim.plan_desde_skills(skills, inicio="08:00:00", porcentaje_actividad=1)
 
-
+porcentaje_actividad=.8
 
 registros_atenciones_simulacion, fila = sim.simv7(
     el_dia_real, hora_cierre, 
-    sim.plan_desde_skills(skills=skills , inicio = '08:00:00', porcentaje_actividad=.8),
+    sim.plan_desde_skills(skills=skills , inicio = '08:00:00', porcentaje_actividad=porcentaje_actividad),
     probabilidad_pausas = 0.65, 
     factor_pausas       = .06,
     params_pausas       = [0, 1/5, 1/2])
@@ -171,5 +171,5 @@ for i, (pair_1, pair_2) in enumerate(zip(df_pairs_1, df_pairs_2)):
 
 
 fig.subplots_adjust(hspace=1.,  wspace=.5)  
-fig.suptitle(t = 'FONASA/Monjitas, 2023-05-15.', y=.98, fontsize=12)
+fig.suptitle(t = f'FONASA/Monjitas, 2023-05-15 - Actividad: {porcentaje_actividad*100}%.', y=.98, fontsize=12)
 plt.show()
