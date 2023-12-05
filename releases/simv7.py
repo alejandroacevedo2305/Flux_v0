@@ -17,6 +17,130 @@ from copy import deepcopy
 
 import random
 
+import os
+from datetime import date
+
+import pandas as pd  # Dataframes
+import polars as pl  # DFs, es más rapido
+from pydantic import BaseModel, Field, ConfigDict  # Validacion de datos
+
+
+
+def plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, ax1, label_1, label_2, color_1, color_2, serie=''):
+    # Debugging statement:
+    print(f'Type of df_count_1: {type(df_count_1)}')
+    # Ensure df_count_1 is a dataframe
+    if not isinstance(df_count_1, pd.DataFrame):
+        raise TypeError("df_count_1 is not a DataFrame!")
+
+    # Extract start and end times
+    start_times = df_count_1['FH_Emi'].dt.strftime('%H:%M:%S')
+    end_times = (df_count_1['FH_Emi'] + pd.Timedelta(hours=1)).dt.strftime('%H:%M:%S')
+
+    # Create the x_labels using the extracted start and end times
+    x_labels = [f"{start_time} - {end_time}" for start_time, end_time in zip(start_times, end_times)]
+    
+    bars = ax1.bar(x_labels, df_count_1['demanda'], alpha=0.6, label='Demanda', edgecolor='white', width=0.75)
+    # Create a second y-axis
+    ax2 = ax1.twinx()
+    ##############
+        # Ensure the data lengths match before plotting
+    min_len_1 = min(len(x_labels), len(df_avg_1['espera']))
+    min_len_2 = min(len(x_labels), len(df_avg_2['espera']))
+    
+    # Use the minimum length to slice the data and plot
+    ax2.plot(x_labels[:min_len_1],df_avg_1['espera'][:min_len_1], color=color_1, marker='o', linestyle='--', label=label_1)
+    ax2.plot(x_labels[:min_len_2], df_avg_2['espera'][:min_len_2], color=color_2, marker='o', linestyle='-', label=label_2)
+    # Add a transparent shaded area between the two lines
+    # Find the shorter length among the two series
+    min_len = min(min_len_1, min_len_2)
+
+    # Modified fill_between section to handle color changes based on conditions
+    ax2.fill_between(
+        x_labels[:min_len], 
+        df_avg_1['espera'][:min_len], 
+        df_avg_2['espera'][:min_len], 
+        where=(df_avg_1['espera'][:min_len] < df_avg_2['espera'][:min_len]), 
+        interpolate=True, 
+        color='green', 
+        alpha=0.2
+    )
+
+    ax2.fill_between(
+        x_labels[:min_len], 
+        df_avg_1['espera'][:min_len], 
+        df_avg_2['espera'][:min_len], 
+        where=(df_avg_1['espera'][:min_len] >= df_avg_2['espera'][:min_len]), 
+        interpolate=True, 
+        color='red', 
+        alpha=0.13
+    )
+
+
+    ax1.set_xlabel('')
+    ax1.set_ylabel('Demanda (#)', color='black')
+    ax2.set_ylabel('T. espera (min)', color='black')    
+    ax2.set_ylim([0, 1.1*pd.concat([df_avg_1, df_avg_2], axis = 0).espera.max()])
+    ax1.set_xticks([rect.get_x() + rect.get_width() / 2 for rect in bars])
+    ax1.set_xticklabels(x_labels, rotation=40, ha="right", rotation_mode="anchor", size =7)
+    ax1.legend(loc='upper center', bbox_to_anchor=(0.35, 1.37))
+    ax2.legend(loc='upper center', bbox_to_anchor=(0.7, 1.37))
+    ax1.set_title(f"Serie {serie}", y=1.34) 
+
+    # Add grid and background color
+    ax1.grid(color='black', linestyle='-', linewidth=0.25, alpha=0.35)  
+    ax2.grid(color='black', linestyle='-', linewidth=0.25, alpha=0.35)  
+    ax1.set_facecolor((0.75, 0.75, 0.75, .9))  
+    ax2.set_facecolor((0.75, 0.75, 0.75, .9))  
+
+
+def compare_historico_vs_simulacion(el_dia_real, registros_atenciones_simulacion,
+                                    ID_DATABASE, ID_OFICINA,FECHA ,porcentaje_actividad):
+    series = sorted(list({val for sublist in obtener_skills(el_dia_real).values() for val in sublist}))
+    registros_atenciones = pd.DataFrame()
+    tabla_atenciones = el_dia_real[['FH_Emi', 'IdSerie', 'T_Esp']]
+    tabla_atenciones.columns = ['FH_Emi', 'IdSerie', 'espera']
+    registros_atenciones = tabla_atenciones.copy()
+    registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int)
+
+
+    registros_atenciones['espera'] = registros_atenciones['espera']/60
+
+    esperas_x_serie = [(registros_atenciones[registros_atenciones.IdSerie == s].drop('IdSerie',axis=1, inplace = False
+                                                                ).set_index('FH_Emi', inplace=False).resample('1H').count().rename(columns={'espera': 'demanda'}).reset_index(),
+    registros_atenciones[registros_atenciones.IdSerie == s].drop('IdSerie',axis=1, inplace = False
+                                                                ).set_index('FH_Emi', inplace=False).resample('1H').mean().reset_index(),
+    s)
+    for s in series]
+
+    registros_atenciones_simulacion = registros_atenciones_simulacion.astype({'FH_Emi': 'datetime64[s]', 'IdSerie': 'int', 'espera': 'int'})[["FH_Emi","IdSerie","espera"]].reset_index(drop=True)
+
+    registros_atenciones_simulacion['espera'] = registros_atenciones_simulacion['espera']/60
+
+    esperas_x_serie_simulados = [(registros_atenciones_simulacion[registros_atenciones_simulacion.IdSerie == s].drop('IdSerie',axis=1, inplace = False
+                                                                ).set_index('FH_Emi', inplace=False).resample('1H').count().rename(columns={'espera': 'demanda'}).reset_index(),
+    registros_atenciones_simulacion[registros_atenciones_simulacion.IdSerie == s].drop('IdSerie',axis=1, inplace = False
+                                                                ).set_index('FH_Emi', inplace=False).resample('1H').mean().reset_index(),
+    s)
+    for s in series]
+
+    import matplotlib.pyplot as plt
+    fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(10,10))
+    axs      = axs.ravel() 
+    df_pairs_1 = esperas_x_serie #random.sample(esperas_x_serie, len(esperas_x_serie))
+    df_pairs_2 = esperas_x_serie_simulados #random.sample(registros_atenciones_simulacion, len(esperas_x_serie))
+    for i, (pair_1, pair_2) in enumerate(zip(df_pairs_1, df_pairs_2)):
+        # Unpacking the tuple correctly
+        df_count_1, df_avg_1, _ = pair_1
+        df_count_2, df_avg_2, serie = pair_2
+        plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, axs[i], "histórico", "simulado", "navy", "purple", serie=serie)
+
+
+    fig.subplots_adjust(hspace=1,  wspace=.5)  
+    fig.suptitle(t = f' {ID_DATABASE}, oficina {ID_OFICINA}, {FECHA} - Actividad: {porcentaje_actividad*100}%.', y=1.0, fontsize=12)
+    plt.show()
+
+
 
 def get_permutations_array(length):
     # Generate the list based on the input length
@@ -352,115 +476,293 @@ def obtener_skills(un_dia):
 
 from dataclasses import dataclass
 from datetime import date, time, datetime
+class DatasetTTP(BaseModel):
+    """
+    Tablas de atenciones y configuraciones
 
-@dataclass
-class DatasetTTP:
-    atenciones : pd.DataFrame
-    atenciones_agg : pd.DataFrame
-    atenciones_agg_dia : pd.DataFrame
+    Un wrapper que permite consultar una base de datos sobre las atenciones y configuraciones de una oficina.
+    """
 
-    @staticmethod
-    def _reshape_df_atenciones(df : pd.DataFrame, resample = "60t") -> 'pd.DataFrame':
+    # Parametros de instanciacion, esto no llena de data hasta llamar otros metodos
+    connection_string: str = Field(description="Un string de conexion a una base de datos")
+    id_oficina: int = Field(description="Identificador numerico de una oficina")
 
-        resampler = ( df
-            .set_index("FH_Emi")
-            .groupby(by=["IdOficina","IdSerie"])
-            .resample(resample)
-        )
+    # FIXME: esto existe porque la clase no esta definida como un tipo valido
+    # (quiero tipos porque atrapan errores antes de que se propaguen)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-        medianas = resampler.median()[["T_Esp","T_Ate"]]
+    # Componentes que deben poder entrar inmediatamente al simulador
+    atenciones: pd.DataFrame = None  # TODO: reemplazar por Pandera
+    planificacion: dict = None  # TODO: reemplazar por Pydantic
+    configuraciones: pd.DataFrame = None  # Post-inicializado
 
-        medianas["Demanda"] = ( resampler
-            .count().IdSerie
-            .rename("Demanda") # Esto es una serie, asi que solo tiene un nombre
-            # .reset_index(level="IdSerie") #
-        )
+    def model_post_init(self, _) -> None:
+        # Llama a la ultima configuracion de la oficina
+        self.configuraciones = pl.read_database_uri(
+            uri=self.connection_string,
+            query=f"""
+            SELECT
+                -- INFORMACION DE ESCRITORIOS
+                "EscritorioSerie"."IdOficina",
+                "Oficinas"."oficina" AS "oficina", 
+                "EscritorioSerie"."IdEsc",
+                "Escritorios"."Modo" AS "configuracion_atencion",
+                "EscritorioSerie"."IdSerie",
+                "Series"."Serie" AS "serie",
+                "EscritorioSerie"."Prioridad" AS "prioridad",-- Cosas para planificacion
+                "EscritorioSerie"."Alterna" AS "pasos", -- Cosas para planificacion
+                "Series"."tMaxEsp" AS "tiempo_maximo_espera"
+            FROM "EscritorioSerie"
+                JOIN "Oficinas" ON 
+                    "EscritorioSerie"."IdOficina" = "Oficinas"."IdOficina"
+                JOIN "Series" ON 
+                    "Series"."IdOficina" = "EscritorioSerie"."IdOficina" AND
+                    "Series"."IdSerie"   = "EscritorioSerie"."IdSerie"
+                JOIN "Escritorios" ON 
+                    "Escritorios"."IdOficina" = "EscritorioSerie"."IdOficina" AND
+                    "Escritorios"."IdEsc"     = "EscritorioSerie"."IdEsc"
+            WHERE ("EscritorioSerie"."IdOficina" = {self.id_oficina})
+        """,
+        ).sort(by=["IdEsc", "prioridad"])
 
-        return medianas[["Demanda","T_Esp","T_Ate"]]
+    # Metodos para rellenar atenciones y planificacion
+    def forecast(self):
+        # Conectare la logica luego
+        raise NotImplementedError
 
-    @staticmethod
-    def _atenciones_validas( df ) -> 'pd.DataFrame':
-        """Un helper para limpiar la data en base a ciertas condiciones logicas"""
+    def un_dia(self, fecha: date):
+        """
+        Modifica las `atenciones` y `planificacion` a una fecha historica
 
-        # TODO: implementar loggin de cosas (n) que se eliminan en estas atenciones raras
-        # TODO: Posiblemente limpiar esto en un unico . . ., o usar Polars
-        df = df.dropna( how = 'any' ) # Inmediatamente elimina los NaN
-        df = df[~(df["FH_Emi"] == df["FH_AteFin"])]
-        df = df[~(df["FH_AteIni"] == df["FH_Emi"])]
-        df = df[~(df["FH_AteIni"] == df["FH_AteFin"])]
-        df = df[~(df["FH_Emi"] > df["FH_Llama"])]
-        df = df[~((df["FH_Llama"] - df["FH_Emi"]) > pd.Timedelta(hours=12))]
-        df = df[~((df["FH_AteIni"] - df["FH_Llama"]) > pd.Timedelta(hours=1))]
-        df = df[~((df["FH_AteFin"] - df["FH_AteIni"]) < pd.Timedelta(seconds=5))]
+        Usa una fecha en un formato reconocible por Pandas, devuelve error en caso de no
+        tener atenciones para ese dia. Retorna la tabla de atenciones y el diccionario de
+        planificacion para el dia, y modifica esto en el objeto `self` para no tener que
+        ejecutar esta funcion de nuevo para un mismo dia.
+        """
+        # PARTE TRIVIAL, LEE LAS ATENCIONES DE UNA FECHA
+        fecha = pd.Timestamp(fecha)  # Converte la fecha a un timestamp
 
-        return df
-
-    @staticmethod
-    def desde_csv_atenciones( csv_path : str ) -> 'DatasetTTP':
-        df = pd.read_csv( csv_path, 
-            usecols = ["IdOficina","IdSerie","IdEsc","FH_Emi","FH_Llama","FH_AteIni","FH_AteFin"], 
-            parse_dates = [3, 4, 5, 6]
-            ).astype({
-                "IdOficina" : "Int32",
-                "IdSerie" : "Int8",
-                "IdEsc" : "Int8",
-                "FH_Emi" : "datetime64[s]",
-                "FH_Llama" : "datetime64[s]",
-                "FH_AteIni" : "datetime64[s]",
-                "FH_AteFin" : "datetime64[s]",
-            })
-        
-        df = DatasetTTP._atenciones_validas(df) # Corre la funcion de limpieza
-
-        df["T_Esp"] = ( df["FH_AteIni"] - df["FH_Emi"] ).dt.seconds 
-        df["T_Ate"] = ( df["FH_AteFin"] - df["FH_AteIni"] ).dt.seconds 
-
-        return DatasetTTP( 
-            atenciones = df, 
-            atenciones_agg = DatasetTTP._reshape_df_atenciones( df ),
-            atenciones_agg_dia = DatasetTTP._reshape_df_atenciones( df, resample = '1D' )
-         )
-
-
-    @staticmethod
-    def desde_sql_server() -> 'DatasetTTP':
-
-        sql_query = """-- La verdad esto podria ser un View, pero no sé si eso es mas rapido en MS SQL --
-        SELECT
-            -- TOP 5000 -- Por motivos de rendimiento
-            IdOficina, -- Sucursal fisica
-            IdSerie,   -- Motivo de atencion
-            IdEsc,     -- Escritorio de atencion
-
-            FH_Emi,    -- Emision del tiquet, con...
-            -- TIEMPO DE ESPERA A REDUCIR --
-            FH_Llama,  -- ... hora de llamada a resolverlo,  ...
-            FH_AteIni, -- ... inicio de atencion, y
-            FH_AteFin  -- ... termino de atencion
-
-        FROM Atenciones -- Unica tabla que estamos usando por ahora -- MOCK
-        -- FROM dbo.Atenciones -- Unica tabla que estamos usando por ahora -- REAL
-
-        WHERE
-            (IdSerie IN (10, 11, 12, 14, 5)) AND 
-            (FH_Emi > '2023-01-01 00:00:00') AND     -- De este año
-            (FH_Llama IS NOT NULL) AND (Perdido = 0) -- CON atenciones
+        self.atenciones = pl.read_database_uri(
+            uri=self.connection_string,
+            query=f"""
+            SELECT
+                "IdOficina", -- Sucursal fisica
+                "IdSerie",   -- Motivo de atencion
+                "IdEsc",     -- Escritorio de atencion
+                "FH_Emi",    -- Emision del tiquet, con...
+                "FH_Llama",  -- ...hora de llamada a resolverlo,...
+                "FH_AteIni", -- ...inicio de atencion, y...
+                "FH_AteFin"  -- ...termino de atencion
             
-        ORDER BY FH_Emi DESC; -- Ordenado de mas reciente hacia atras (posiblemente innecesario)"""
-        raise NotImplementedError("Este metódo aún no está implementado.")
+            FROM "Atenciones"
+
+            WHERE
+                ("IdOficina" = {self.id_oficina} ) AND -- Selecciona solo una oficina, segun arriba
+                ("FH_Emi" > '{fecha}') AND ("FH_Emi" < '{fecha + pd.Timedelta(days=1)}') AND -- solo el dia
+                ("FH_Llama" IS NOT NULL) -- CON atenciones
+
+            ORDER BY "FH_Emi" DESC -- Ordenado de mas reciente hacia atras (posiblemente innecesario);
+            """,
+        )
+
+        # NOTA: esto seria solo .empty (atributo) en un pd.DataFrame, pero Polars es mas rapido
+        if self.atenciones.is_empty():
+            raise Exception("Tabla de atenciones vacia", f"Fecha sin atenciones: {fecha}")
+
+        # PRIORIDADES DE SERIES, COMPATIBLE CON INFERIDAS Y GUARDADAS EN CONFIG
+        lista_config = (
+            # Lista de prioridades por serie, en la configuracion ultima
+            dataset.configuraciones.group_by(by=["IdSerie"])
+            .agg(pl.mean("prioridad"), pl.count("IdEsc"))
+            .sort(by=["prioridad", "IdEsc"], descending=[False, True])["IdSerie"]
+            .to_list()
+        )
+
+        lista_atenciones = (
+            # Usa un contador de atenciones para rankear mas arriba con mas atenciones
+            dataset.atenciones["IdSerie"].value_counts().sort(by="counts", descending=True)["IdSerie"].to_list()
+        )
+
+        # Esto genera una lista global de prioridades, donde todo lo demas puede ir a la cola
+        map_prioridad = {
+            id_serie: rank + 1
+            for rank, id_serie in enumerate(
+                # Combina ambas listas, prefiriendo la de la configuracion ultima sobre la inferida del dia
+                [s for s in lista_config if (s in lista_atenciones)]
+                + [s for s in lista_atenciones if (s not in lista_config)]
+            )
+        }
+
+        # TODO: Esta parte genera una lista de prioridades en la configuracion del dia,
+        # resolviendo incompatibilidades de que algo no esté originalmente.
+        df_configuraciones = (
+            dataset.atenciones.select(["IdEsc", "IdSerie"])
+            .unique(keep="first")
+            .sort(by=["IdEsc", "IdSerie"], descending=[True, True])
+            .with_columns(prioridad=pl.col("IdSerie").replace(map_prioridad, default=None))
+        )
+
+        # Esta es la tabla de metadata para las series, por separado por comprension
+        df_series_meta = (
+            dataset.configuraciones.select(["IdSerie", "serie", "tiempo_maximo_espera"])
+            .unique(keep="first")
+            .with_columns(prioridad=pl.col("IdSerie").replace(map_prioridad, default=None))
+        )
+
+        # Se unifica con la de configuracion diaria
+        df_configuraciones = df_configuraciones.join(df_series_meta, on="IdSerie")
+
+        # EMPIEZA A CONSTRUIR LA PLANIFICACION DESDE HORARIOS Y ESCRITORIOS
+        horarios = dataset.atenciones.group_by(by=["IdEsc"]).agg(
+            inicio=pl.min("FH_Emi").dt.round("1h"),
+            termino=pl.max("FH_AteIni").dt.round("1h"),
+        )
+
+        self.planificacion = {
+            e["IdEsc"]: [
+                {
+                    "inicio": str(e["inicio"].time()),
+                    "termino": str(e["termino"].time()),
+                    "propiedades": {
+                        # Esta parte saca los skills comparando con el dict de configs
+                        "skills": df_configuraciones.filter(pl.col("IdEsc") == e["IdEsc"])["IdSerie"].to_list(),
+                        # asumimos que la configuracion de todos es rebalse
+                        # TODO: el porcentaje de actividad es mas complicado, asumire un 80%
+                        "configuracion_atencion": "Rebalse",
+                        "porcentaje_actividad": 0.80,
+                        # Esto es innecesariamente nested
+                        "atributos_series": [
+                            {
+                                "serie": s["IdSerie"],
+                                "sla_porcen": 80,  # Un valor por defecto
+                                "sla_corte": s["tiempo_maximo_espera"],
+                                "pasos": 1,  # Un valor por defecto
+                                "prioridad": s["prioridad"],
+                            }
+                            for s in df_configuraciones.filter(pl.col("IdEsc") == e["IdEsc"]).to_dicts()
+                        ],
+                    },
+                }
+            ]
+            for e in horarios.to_dicts()
+        }
+
+        # No usamos Polars depues de esto
+        if True:  # not DF_POLARS:
+            self.atenciones = self.atenciones.to_pandas()
+
+        return self.atenciones, self.planificacion
+
+    # METADATA
+    __version__ = 2.0  # El otro es la version original. Este REQUIERE una db.
+# @dataclass
+# class DatasetTTP:
+#     atenciones : pd.DataFrame
+#     atenciones_agg : pd.DataFrame
+#     atenciones_agg_dia : pd.DataFrame
+
+#     @staticmethod
+#     def _reshape_df_atenciones(df : pd.DataFrame, resample = "60t") -> 'pd.DataFrame':
+
+#         resampler = ( df
+#             .set_index("FH_Emi")
+#             .groupby(by=["IdOficina","IdSerie"])
+#             .resample(resample)
+#         )
+
+#         medianas = resampler.median()[["T_Esp","T_Ate"]]
+
+#         medianas["Demanda"] = ( resampler
+#             .count().IdSerie
+#             .rename("Demanda") # Esto es una serie, asi que solo tiene un nombre
+#             # .reset_index(level="IdSerie") #
+#         )
+
+#         return medianas[["Demanda","T_Esp","T_Ate"]]
+
+#     @staticmethod
+#     def _atenciones_validas( df ) -> 'pd.DataFrame':
+#         """Un helper para limpiar la data en base a ciertas condiciones logicas"""
+
+#         # TODO: implementar loggin de cosas (n) que se eliminan en estas atenciones raras
+#         # TODO: Posiblemente limpiar esto en un unico . . ., o usar Polars
+#         df = df.dropna( how = 'any' ) # Inmediatamente elimina los NaN
+#         df = df[~(df["FH_Emi"] == df["FH_AteFin"])]
+#         df = df[~(df["FH_AteIni"] == df["FH_Emi"])]
+#         df = df[~(df["FH_AteIni"] == df["FH_AteFin"])]
+#         df = df[~(df["FH_Emi"] > df["FH_Llama"])]
+#         df = df[~((df["FH_Llama"] - df["FH_Emi"]) > pd.Timedelta(hours=12))]
+#         df = df[~((df["FH_AteIni"] - df["FH_Llama"]) > pd.Timedelta(hours=1))]
+#         df = df[~((df["FH_AteFin"] - df["FH_AteIni"]) < pd.Timedelta(seconds=5))]
+
+#         return df
+
+#     @staticmethod
+#     def desde_csv_atenciones( csv_path : str ) -> 'DatasetTTP':
+#         df = pd.read_csv( csv_path, 
+#             usecols = ["IdOficina","IdSerie","IdEsc","FH_Emi","FH_Llama","FH_AteIni","FH_AteFin"], 
+#             parse_dates = [3, 4, 5, 6]
+#             ).astype({
+#                 "IdOficina" : "Int32",
+#                 "IdSerie" : "Int8",
+#                 "IdEsc" : "Int8",
+#                 "FH_Emi" : "datetime64[s]",
+#                 "FH_Llama" : "datetime64[s]",
+#                 "FH_AteIni" : "datetime64[s]",
+#                 "FH_AteFin" : "datetime64[s]",
+#             })
+        
+#         df = DatasetTTP._atenciones_validas(df) # Corre la funcion de limpieza
+
+#         df["T_Esp"] = ( df["FH_AteIni"] - df["FH_Emi"] ).dt.seconds 
+#         df["T_Ate"] = ( df["FH_AteFin"] - df["FH_AteIni"] ).dt.seconds 
+
+#         return DatasetTTP( 
+#             atenciones = df, 
+#             atenciones_agg = DatasetTTP._reshape_df_atenciones( df ),
+#             atenciones_agg_dia = DatasetTTP._reshape_df_atenciones( df, resample = '1D' )
+#          )
 
 
-    @staticmethod
-    def desde_csv_batch() -> 'DatasetTTP':
-        raise NotImplementedError("Este metódo aún no está implementado.")
+#     @staticmethod
+#     def desde_sql_server() -> 'DatasetTTP':
 
-    def un_dia(self, dia : date):
-        """Retorna las atenciones de un dia historico"""
+#         sql_query = """-- La verdad esto podria ser un View, pero no sé si eso es mas rapido en MS SQL --
+#         SELECT
+#             -- TOP 5000 -- Por motivos de rendimiento
+#             IdOficina, -- Sucursal fisica
+#             IdSerie,   -- Motivo de atencion
+#             IdEsc,     -- Escritorio de atencion
 
-        inicio_dia = pd.Timestamp( dia )
-        fin_dia = pd.Timestamp( dia ) + pd.Timedelta(days=1)
+#             FH_Emi,    -- Emision del tiquet, con...
+#             -- TIEMPO DE ESPERA A REDUCIR --
+#             FH_Llama,  -- ... hora de llamada a resolverlo,  ...
+#             FH_AteIni, -- ... inicio de atencion, y
+#             FH_AteFin  -- ... termino de atencion
 
-        return self.atenciones[ (inicio_dia <= self.atenciones["FH_Emi"]) & (self.atenciones["FH_Emi"] <= fin_dia) ]
+#         FROM Atenciones -- Unica tabla que estamos usando por ahora -- MOCK
+#         -- FROM dbo.Atenciones -- Unica tabla que estamos usando por ahora -- REAL
+
+#         WHERE
+#             (IdSerie IN (10, 11, 12, 14, 5)) AND 
+#             (FH_Emi > '2023-01-01 00:00:00') AND     -- De este año
+#             (FH_Llama IS NOT NULL) AND (Perdido = 0) -- CON atenciones
+            
+#         ORDER BY FH_Emi DESC; -- Ordenado de mas reciente hacia atras (posiblemente innecesario)"""
+#         raise NotImplementedError("Este metódo aún no está implementado.")
+
+
+#     @staticmethod
+#     def desde_csv_batch() -> 'DatasetTTP':
+#         raise NotImplementedError("Este metódo aún no está implementado.")
+
+#     def un_dia(self, dia : date):
+#         """Retorna las atenciones de un dia historico"""
+
+#         inicio_dia = pd.Timestamp( dia )
+#         fin_dia = pd.Timestamp( dia ) + pd.Timedelta(days=1)
+
+#         return self.atenciones[ (inicio_dia <= self.atenciones["FH_Emi"]) & (self.atenciones["FH_Emi"] <= fin_dia) ]
     
 def get_random_non_empty_subset(lst):
     # Step 1: Check that the input list is not empty

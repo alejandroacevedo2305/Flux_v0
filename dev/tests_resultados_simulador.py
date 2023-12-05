@@ -10,10 +10,10 @@ warnings.filterwarnings("ignore")
 import time
 import random
 
-from data.mocks import planificacion_simulador
-
+#from data.mocks import planificacion_simulador
+import matplotlib.pyplot as plt
 #import releases.simv6_1 as sim
-from src.viz_utils import sla_x_serie, plot_all_reports_two_lines, plot_count_and_avg_two_lines
+#from src.viz_utils import sla_x_serie, plot_all_reports_two_lines, plot_count_and_avg_two_lines
 
 
 
@@ -99,78 +99,78 @@ def plot_all_reports_two_lines(df_pairs_1, df_pairs_2, label_1, label_2, color_1
     fig.suptitle(main_title, y=.98, fontsize=12)
     plt.show()
 
-import releases.simv7 as sim
+# import releases.simv7 as sim
 
-dataset = sim.DatasetTTP.desde_csv_atenciones(
-    "data/fonasa_monjitas.csv.gz")  # 
+# dataset = sim.DatasetTTP.desde_csv_atenciones(
+#     "data/fonasa_monjitas.csv.gz")  # 
 
-dataset = sim.DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
-el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
-#%%
-skills = sim.obtener_skills(el_dia_real)
-series = sorted(list({val for sublist in skills.values() for val in sublist}))
-registros_atenciones = pd.DataFrame()
-tabla_atenciones = el_dia_real[['FH_Emi', 'IdSerie', 'T_Esp']]
-tabla_atenciones.columns = ['FH_Emi', 'IdSerie', 'espera']
-registros_atenciones = tabla_atenciones.copy()
-registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int)
-#registros_x_serie = [registros_atenciones[registros_atenciones.IdSerie == s] for s in series]
+# dataset = sim.DatasetTTP.desde_csv_atenciones("data/fonasa_monjitas.csv.gz")
+# el_dia_real = dataset.un_dia("2023-05-15").sort_values(by='FH_Emi', inplace=False)
+# #%%
+# skills = sim.obtener_skills(el_dia_real)
+# series = sorted(list({val for sublist in skills.values() for val in sublist}))
+# registros_atenciones = pd.DataFrame()
+# tabla_atenciones = el_dia_real[['FH_Emi', 'IdSerie', 'T_Esp']]
+# tabla_atenciones.columns = ['FH_Emi', 'IdSerie', 'espera']
+# registros_atenciones = tabla_atenciones.copy()
+# registros_atenciones['IdSerie'] = registros_atenciones['IdSerie'].astype(int)
+# #registros_x_serie = [registros_atenciones[registros_atenciones.IdSerie == s] for s in series]
 
-esperas_x_serie = [(registros_atenciones[registros_atenciones.IdSerie == s].drop('IdSerie',axis=1, inplace = False
-                                                               ).set_index('FH_Emi', inplace=False).resample('1H').count().rename(columns={'espera': 'demanda'}).reset_index(),
-  registros_atenciones[registros_atenciones.IdSerie == s].drop('IdSerie',axis=1, inplace = False
-                                                               ).set_index('FH_Emi', inplace=False).resample('1H').mean().reset_index(),
-  s)
- for s in series]
-
-
-
-#%%
-######################
-#------Simulacion-----
-######################
-#un_dia = dataset.un_dia("2023-05-15").sort_values(by="FH_Emi", inplace=False)
-start_time = time.time()
-hora_cierre = "15:30:00"
-# planificacion = sim.plan_desde_skills(skills, inicio="08:00:00", porcentaje_actividad=1)
-
-porcentaje_actividad=.8
-
-registros_atenciones_simulacion, fila = sim.simv7(
-    el_dia_real, hora_cierre, 
-    sim.plan_desde_skills(skills=skills , inicio = '08:00:00', porcentaje_actividad=porcentaje_actividad),
-    probabilidad_pausas = 0.65, 
-    factor_pausas       = .06,
-    params_pausas       = [0, 1/5, 1/2])
-    #, log_path="dev/simulacion.log")
-print(f"{len(registros_atenciones_simulacion) = }, {len(fila) = }")
-end_time = time.time()
-print(f"tiempo total: {end_time - start_time:.1f} segundos")
-
-
-registros_atenciones_simulacion = registros_atenciones_simulacion.astype({'FH_Emi': 'datetime64[s]', 'IdSerie': 'int', 'espera': 'int'})[["FH_Emi","IdSerie","espera"]].reset_index(drop=True)
-
-esperas_x_serie_simulados = [(registros_atenciones_simulacion[registros_atenciones_simulacion.IdSerie == s].drop('IdSerie',axis=1, inplace = False
-                                                               ).set_index('FH_Emi', inplace=False).resample('1H').count().rename(columns={'espera': 'demanda'}).reset_index(),
-  registros_atenciones_simulacion[registros_atenciones_simulacion.IdSerie == s].drop('IdSerie',axis=1, inplace = False
-                                                               ).set_index('FH_Emi', inplace=False).resample('1H').mean().reset_index(),
-  s)
- for s in series]
-
-import matplotlib.pyplot as plt
-fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(10,10))
-axs      = axs.ravel() 
-df_pairs_1 = esperas_x_serie #random.sample(esperas_x_serie, len(esperas_x_serie))
-df_pairs_2 = esperas_x_serie_simulados #random.sample(registros_atenciones_simulacion, len(esperas_x_serie))
-for i, (pair_1, pair_2) in enumerate(zip(df_pairs_1, df_pairs_2)):
-    print(pair_1)
-    # Unpacking the tuple correctly
-    df_count_1, df_avg_1, _ = pair_1
-    df_count_2, df_avg_2, serie = pair_2
-    plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, axs[i], "histórico", "simulado", "navy", "purple", serie=serie)
+# esperas_x_serie = [(registros_atenciones[registros_atenciones.IdSerie == s].drop('IdSerie',axis=1, inplace = False
+#                                                                ).set_index('FH_Emi', inplace=False).resample('1H').count().rename(columns={'espera': 'demanda'}).reset_index(),
+#   registros_atenciones[registros_atenciones.IdSerie == s].drop('IdSerie',axis=1, inplace = False
+#                                                                ).set_index('FH_Emi', inplace=False).resample('1H').mean().reset_index(),
+#   s)
+#  for s in series]
 
 
 
-fig.subplots_adjust(hspace=1.,  wspace=.5)  
-fig.suptitle(t = f'FONASA/Monjitas, 2023-05-15 - Actividad: {porcentaje_actividad*100}%.', y=.98, fontsize=12)
-plt.show()
+# #%%
+# ######################
+# #------Simulacion-----
+# ######################
+# #un_dia = dataset.un_dia("2023-05-15").sort_values(by="FH_Emi", inplace=False)
+# start_time = time.time()
+# hora_cierre = "15:30:00"
+# # planificacion = sim.plan_desde_skills(skills, inicio="08:00:00", porcentaje_actividad=1)
+
+# porcentaje_actividad=.8
+
+# registros_atenciones_simulacion, fila = sim.simv7(
+#     el_dia_real, hora_cierre, 
+#     sim.plan_desde_skills(skills=skills , inicio = '08:00:00', porcentaje_actividad=porcentaje_actividad),
+#     probabilidad_pausas = 0.65, 
+#     factor_pausas       = .06,
+#     params_pausas       = [0, 1/5, 1/2])
+#     #, log_path="dev/simulacion.log")
+# print(f"{len(registros_atenciones_simulacion) = }, {len(fila) = }")
+# end_time = time.time()
+# print(f"tiempo total: {end_time - start_time:.1f} segundos")
+
+
+# registros_atenciones_simulacion = registros_atenciones_simulacion.astype({'FH_Emi': 'datetime64[s]', 'IdSerie': 'int', 'espera': 'int'})[["FH_Emi","IdSerie","espera"]].reset_index(drop=True)
+
+# esperas_x_serie_simulados = [(registros_atenciones_simulacion[registros_atenciones_simulacion.IdSerie == s].drop('IdSerie',axis=1, inplace = False
+#                                                                ).set_index('FH_Emi', inplace=False).resample('1H').count().rename(columns={'espera': 'demanda'}).reset_index(),
+#   registros_atenciones_simulacion[registros_atenciones_simulacion.IdSerie == s].drop('IdSerie',axis=1, inplace = False
+#                                                                ).set_index('FH_Emi', inplace=False).resample('1H').mean().reset_index(),
+#   s)
+#  for s in series]
+
+# import matplotlib.pyplot as plt
+# fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(10,10))
+# axs      = axs.ravel() 
+# df_pairs_1 = esperas_x_serie #random.sample(esperas_x_serie, len(esperas_x_serie))
+# df_pairs_2 = esperas_x_serie_simulados #random.sample(registros_atenciones_simulacion, len(esperas_x_serie))
+# for i, (pair_1, pair_2) in enumerate(zip(df_pairs_1, df_pairs_2)):
+#     print(pair_1)
+#     # Unpacking the tuple correctly
+#     df_count_1, df_avg_1, _ = pair_1
+#     df_count_2, df_avg_2, serie = pair_2
+#     plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, axs[i], "histórico", "simulado", "navy", "purple", serie=serie)
+
+
+
+# fig.subplots_adjust(hspace=1.,  wspace=.5)  
+# fig.suptitle(t = f'FONASA/Monjitas, 2023-05-15 - Actividad: {porcentaje_actividad*100}%.', y=.98, fontsize=12)
+# plt.show()
