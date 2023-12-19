@@ -214,8 +214,6 @@ DB_CONN = "mysql://autopago:Ttp-20238270@totalpackmysql.mysql.database.azure.com
 
 dataset = DatasetTTP(connection_string=DB_CONN, id_oficina=ID_OFICINA)
 
-
-
 #%%
 el_dia_real, plan  = dataset.un_dia(fecha=FECHA)
 el_dia_real['T_Ate'] = (el_dia_real['FH_AteFin'] - el_dia_real['FH_AteIni']).astype('timedelta64[s]').dt.total_seconds().astype(int)
@@ -263,6 +261,12 @@ tiempo_total = (
 
 logging.basicConfig(filename=log_path, level=logging.INFO, filemode="w")
 
+
+
+import numpy as np
+
+
+
 for i, hora_actual in enumerate(reloj):
     total_mins_sim = i
     logging.info(
@@ -283,7 +287,12 @@ for i, hora_actual in enumerate(reloj):
         logging.info(
             f"hora_actual: {hora_actual} - series en emisiones: {list(emisiones['IdSerie'])}"
         )
-        fila = pd.concat([fila, emisiones])
+#################################################
+        if fila.empty:
+            fila = pd.DataFrame(columns=emisiones.columns)
+        for idx, row in emisiones.iterrows():
+            fila.loc[idx] = row
+##########################################
     else:
         logging.info(f"no hay nuevas emisiones hora_actual {hora_actual}")
 
@@ -380,9 +389,12 @@ for i, hora_actual in enumerate(reloj):
 
             un_cliente.IdEsc = int(un_escritorio)
             un_cliente.FH_AteIni = hora_actual
-            registros_atenciones = pd.concat(
-                [registros_atenciones, pd.DataFrame(un_cliente).T]
-            )
+            
+            if registros_atenciones.empty:
+                registros_atenciones = pd.DataFrame(columns= un_cliente.index)               
+                
+            registros_atenciones.loc[un_cliente.name] = un_cliente
+
 
     if i == 0:
         fila["espera"] = 0
@@ -395,3 +407,10 @@ print(f"{len(registros_atenciones) = }, {len(fila) = }")
 end_time = time.time()
 print(f"tiempo total: {end_time - start_time:.1f} segundos")
 sim.compare_historico_vs_simulacion(el_dia_real, registros_atenciones,  ID_DATABASE, ID_OFICINA,FECHA ,porcentaje_actividad)
+#%%
+#----analizamos pasos alternancia ------
+
+supervisor.escritorios['10']['configuracion_atencion']
+
+
+[(v['prioridades'],v['pasos'],v['pasos_alternancia'].pasos) for k,v in supervisor.escritorios.items() if v['configuracion_atencion'] == 'Alternancia']

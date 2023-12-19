@@ -332,83 +332,56 @@ def reset_escritorios_OFF(desk_dict):
         info.update(update_dict)        
     return desk_dict
 
-def create_multiindex_df(data_dict):
+import pandas as pd
+import itertools
+import logging
 
-    multi_index_list = []
-    sorted_data = sorted(data_dict.items(), key=lambda x: x[1]['prioridad'])
-    
-    priority_groups = {}
-    for k, v in sorted_data:
-        priority = v['prioridad']
-        if priority not in priority_groups:
-            priority_groups[priority] = []
-        priority_groups[priority].append((k, v))
-    
-    position = 0  # To enumerate rows
-    for priority, items in priority_groups.items():
-        
-        random.shuffle(items)
-        
-        for k, v in items:
-            pasos = v['pasos']
-            
-            # Add each entry 'pasos' number of times
-            for _ in range(pasos):
-                multi_index_list.append((position, priority, k))
-                position += 1
-                
-    multi_index = pd.MultiIndex.from_tuples(
-        multi_index_list, 
-        names=["posicion", "prioridad", "serie"]
-    )
-    
-    # Initialize the DataFrame
-    df = pd.DataFrame(index=multi_index)
-    
-    return df
+def create_multiindex_df(data_dict):
+    return pd.DataFrame([
+        (position, v['prioridad'], k)
+        for k, v in data_dict.items()
+        for position in range(v['pasos'])
+    ], columns=["posicion", "prioridad", "serie"]).sort_values(by=["prioridad", "posicion"])
 
 def one_cycle_iterator(series, start_pos):
-    part_one = series[start_pos+1:]
-    part_two = series[:start_pos]
-    complete_cycle = pd.concat([part_one, part_two])
-    return iter(complete_cycle)
+    return itertools.chain(series[start_pos+1:], series[:start_pos])
 class pasos_alternancia_v03():
     def __init__(self, prioridades, pasos):
-        
         assert prioridades.keys() == pasos.keys()
 
-        dict1       = {k: {'prioridad': v} for k,v in prioridades.items()}
-        dict2       = {k: {'pasos': v} for k,v in pasos.items()}
-        merged_dict = {}
-        for key in dict1:
-            if key in dict2:
-                merged_dict[key] = {**dict1[key], **dict2[key]}
-        self.pasos             = create_multiindex_df(merged_dict).reset_index(drop=False)
-        self.pasos['posicion'] = self.pasos.index
+        self.merged_dict = {k: {'prioridad': prioridades[k], 'pasos': pasos[k]} for k in prioridades}
+        self.pasos = create_multiindex_df(self.merged_dict)
         self.iterador_posicion = itertools.cycle(self.pasos.posicion)
         
-                           
-    def buscar_cliente(self, fila_filtrada):        
-        self.posicion_actual        = self.pasos.iloc[next(self.iterador_posicion)]
-        serie_en_la_posicion_actual = self.posicion_actual.serie
-        if not     fila_filtrada[fila_filtrada.IdSerie.isin([serie_en_la_posicion_actual])].empty:
-            logging.info(f"modo alternancia: serie_en_la_posicion_actual  {self.posicion_actual.serie} coincidió con cliente(s)")
-            #de los clientes q coincidieron retornar el que llegó primero
-            return fila_filtrada[fila_filtrada.IdSerie.isin([serie_en_la_posicion_actual])].sort_values(by='FH_Emi', ascending=True).iloc[0,]
-        else:
-            logging.info(f"modo alternancia: serie_en_la_posicion_actual ({serie_en_la_posicion_actual}) no conincidió con la fila filtrada {tuple(fila_filtrada.IdSerie)}, buscando en otros pasos")
-            start_position                = self.posicion_actual.posicion
-            logging.info(f"modo alternancia: instanciando one_cycle_iterator con pasos de series = {tuple(self.pasos.serie)} start_position = {start_position}")
-            single_cycle_iterator_x_pasos = one_cycle_iterator(self.pasos.serie, start_position)            
-            for serie_en_un_paso in single_cycle_iterator_x_pasos: 
-                logging.info(f"modo alternancia: iterando serie_en_un_paso -> {serie_en_un_paso}")
-                if not     fila_filtrada[fila_filtrada.IdSerie.isin([serie_en_un_paso])].empty:
+    def buscar_cliente(self, fila_filtrada):
+        # Create a set of unique series for efficient lookup
+        unique_series = set(self.pasos.serie.unique())
+
+        # Filter 'fila_filtrada' to only include rows with series in 'unique_series'
+        filtered_fila_filtrada = fila_filtrada[fila_filtrada['IdSerie'].isin(unique_series)]
+
+        while True:
+            posicion_actual = self.pasos.iloc[next(self.iterador_posicion)]
+            serie_en_la_posicion_actual = posicion_actual.serie
+
+            # Check if the current series has any matching rows in the filtered DataFrame
+            coinciding_rows = filtered_fila_filtrada[filtered_fila_filtrada['IdSerie'] == serie_en_la_posicion_actual]
+            if not coinciding_rows.empty:
+                logging.info(f"modo alternancia: serie_en_la_posicion_actual {serie_en_la_posicion_actual} coincidió con cliente(s)")
+                return coinciding_rows.sort_values(by='FH_Emi').iloc[0]
+
+            for serie_en_un_paso in one_cycle_iterator(self.pasos.serie, posicion_actual.posicion):
+                coinciding_rows = filtered_fila_filtrada[filtered_fila_filtrada['IdSerie'] == serie_en_un_paso]
+                if not coinciding_rows.empty:
                     logging.info(f"modo alternancia: serie {serie_en_un_paso} iterando en otro paso coincidió con cliente")
-                    return fila_filtrada[fila_filtrada.IdSerie.isin([serie_en_un_paso])].sort_values(by='FH_Emi', ascending=True).iloc[0,]
-            else:
-                logging.info(f"modo alternancia: fila_filtrada.IdSerie= {fila_filtrada.IdSerie} serie_en_un_paso: {serie_en_un_paso} en otro paso coincidió con cliente")
-                raise ValueError(
-                "Las series del escritorio no coinciden con la serie del cliente. No se puede atender. ESTO NO DE DEBERIA PASAR, EL FILTRO TIENE QUE ESTAR FUERA DEL OBJETO.")
+                    return coinciding_rows.sort_values(by='FH_Emi').iloc[0]
+            
+            logging.error("Las series del escritorio no coinciden con la serie del cliente. No se puede atender.")
+            raise ValueError("Error de coincidencia de series.")
+
+
+
+
 
 from collections import defaultdict
 import numpy as np
