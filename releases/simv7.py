@@ -1407,6 +1407,12 @@ def simv7_1(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.
 
     logging.basicConfig(filename=log_path, level=logging.INFO, filemode="w")
 
+
+
+    import numpy as np
+
+
+
     for i, hora_actual in enumerate(reloj):
         total_mins_sim = i
         logging.info(
@@ -1427,7 +1433,12 @@ def simv7_1(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.
             logging.info(
                 f"hora_actual: {hora_actual} - series en emisiones: {list(emisiones['IdSerie'])}"
             )
-            fila = pd.concat([fila, emisiones])
+    #################################################
+            if fila.empty:
+                fila = pd.DataFrame(columns=emisiones.columns)
+            for idx, row in emisiones.iterrows():
+                fila.loc[idx] = row
+    ##########################################
         else:
             logging.info(f"no hay nuevas emisiones hora_actual {hora_actual}")
 
@@ -1524,9 +1535,12 @@ def simv7_1(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.
 
                 un_cliente.IdEsc = int(un_escritorio)
                 un_cliente.FH_AteIni = hora_actual
-                registros_atenciones = pd.concat(
-                    [registros_atenciones, pd.DataFrame(un_cliente).T]
-                )
+                
+                if registros_atenciones.empty:
+                    registros_atenciones = pd.DataFrame(columns= un_cliente.index)               
+                    
+                registros_atenciones.loc[un_cliente.name] = un_cliente
+
 
         if i == 0:
             fila["espera"] = 0
