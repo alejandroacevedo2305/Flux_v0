@@ -23,8 +23,10 @@ from datetime import date
 import pandas as pd  # Dataframes
 import polars as pl  # DFs, es más rapido
 from pydantic import BaseModel, Field, ConfigDict  # Validacion de datos
+from itertools import chain, combinations
 
-
+def non_empty_subsets(lst):
+    return list(chain.from_iterable(combinations(lst, r) for r in range(1, len(lst) + 1)))
 
 def plot_count_and_avg_two_lines(df_count_1, df_avg_1, df_count_2, df_avg_2, ax1, label_1, label_2, color_1, color_2, serie=''):
     # Debugging statement:
@@ -449,6 +451,187 @@ def obtener_skills(un_dia):
 
 from dataclasses import dataclass
 from datetime import date, time, datetime
+
+# class DatasetTTP(BaseModel):
+#     """
+#     Tablas de atenciones y configuraciones
+
+#     Un wrapper que permite consultar una base de datos sobre las atenciones y configuraciones de una oficina.
+#     """
+
+#     # Parametros de instanciacion, esto no llena de data hasta llamar otros metodos
+#     connection_string: str = Field(description="Un string de conexion a una base de datos")
+#     id_oficina: int = Field(description="Identificador numerico de una oficina")
+
+#     # FIXME: esto existe porque la clase no esta definida como un tipo valido
+#     # (quiero tipos porque atrapan errores antes de que se propaguen)
+#     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+#     # Componentes que deben poder entrar inmediatamente al simulador
+#     atenciones: pd.DataFrame = None  # TODO: reemplazar por Pandera
+#     planificacion: dict = None  # TODO: reemplazar por Pydantic
+#     configuraciones: pd.DataFrame = None  # Post-inicializado
+
+#     def model_post_init(self, _) -> None:
+#         # Llama a la ultima configuracion de la oficina
+#         self.configuraciones = pl.read_database_uri(
+#             uri=self.connection_string,
+#             query=f"""
+#             SELECT
+#                 -- INFORMACION DE ESCRITORIOS
+#                 "EscritorioSerie"."IdOficina",
+#                 "Oficinas"."oficina" AS "oficina", 
+#                 "EscritorioSerie"."IdEsc",
+#                 "Escritorios"."Modo" AS "configuracion_atencion",
+#                 "EscritorioSerie"."IdSerie",
+#                 "Series"."Serie" AS "serie",
+#                 "EscritorioSerie"."Prioridad" AS "prioridad",-- Cosas para planificacion
+#                 "EscritorioSerie"."Alterna" AS "pasos", -- Cosas para planificacion
+#                 "Series"."tMaxEsp" AS "tiempo_maximo_espera"
+#             FROM "EscritorioSerie"
+#                 JOIN "Oficinas" ON 
+#                     "EscritorioSerie"."IdOficina" = "Oficinas"."IdOficina"
+#                 JOIN "Series" ON 
+#                     "Series"."IdOficina" = "EscritorioSerie"."IdOficina" AND
+#                     "Series"."IdSerie"   = "EscritorioSerie"."IdSerie"
+#                 JOIN "Escritorios" ON 
+#                     "Escritorios"."IdOficina" = "EscritorioSerie"."IdOficina" AND
+#                     "Escritorios"."IdEsc"     = "EscritorioSerie"."IdEsc"
+#             WHERE ("EscritorioSerie"."IdOficina" = {self.id_oficina})
+#         """,
+#         ).sort(by=["IdEsc", "prioridad"])
+
+#     # Metodos para rellenar atenciones y planificacion
+#     def forecast(self):
+#         # Conectare la logica luego
+#         raise NotImplementedError
+
+#     def un_dia(self, fecha: date):
+#         """
+#         Modifica las `atenciones` y `planificacion` a una fecha historica
+
+#         Usa una fecha en un formato reconocible por Pandas, devuelve error en caso de no
+#         tener atenciones para ese dia. Retorna la tabla de atenciones y el diccionario de
+#         planificacion para el dia, y modifica esto en el objeto `self` para no tener que
+#         ejecutar esta funcion de nuevo para un mismo dia.
+#         """
+#         # PARTE TRIVIAL, LEE LAS ATENCIONES DE UNA FECHA
+#         fecha = pd.Timestamp(fecha)  # Converte la fecha a un timestamp
+
+#         self.atenciones = pl.read_database_uri(
+#             uri=self.connection_string,
+#             query=f"""
+#             SELECT
+#                 "IdOficina", -- Sucursal fisica
+#                 "IdSerie",   -- Motivo de atencion
+#                 "IdEsc",     -- Escritorio de atencion
+#                 "FH_Emi",    -- Emision del tiquet, con...
+#                 "FH_Llama",  -- ...hora de llamada a resolverlo,...
+#                 "FH_AteIni", -- ...inicio de atencion, y...
+#                 "FH_AteFin"  -- ...termino de atencion
+            
+#             FROM "Atenciones"
+
+#             WHERE
+#                 ("IdOficina" = {self.id_oficina} ) AND -- Selecciona solo una oficina, segun arriba
+#                 ("FH_Emi" > '{fecha}') AND ("FH_Emi" < '{fecha + pd.Timedelta(days=1)}') AND -- solo el dia
+#                 ("FH_Llama" IS NOT NULL) -- CON atenciones
+
+#             ORDER BY "FH_Emi" DESC -- Ordenado de mas reciente hacia atras (posiblemente innecesario);
+#             """,
+#         )
+
+#         # NOTA: esto seria solo .empty (atributo) en un pd.DataFrame, pero Polars es mas rapido
+#         if self.atenciones.is_empty():
+#             raise Exception("Tabla de atenciones vacia", f"Fecha sin atenciones: {fecha}")
+
+#         # PRIORIDADES DE SERIES, COMPATIBLE CON INFERIDAS Y GUARDADAS EN CONFIG
+#         lista_config = (
+#             # Lista de prioridades por serie, en la configuracion ultima
+#             dataset.configuraciones.group_by(by=["IdSerie"])
+#             .agg(pl.mean("prioridad"), pl.count("IdEsc"))
+#             .sort(by=["prioridad", "IdEsc"], descending=[False, True])["IdSerie"]
+#             .to_list()
+#         )
+
+#         lista_atenciones = (
+#             # Usa un contador de atenciones para rankear mas arriba con mas atenciones
+#             dataset.atenciones["IdSerie"].value_counts().sort(by="counts", descending=True)["IdSerie"].to_list()
+#         )
+
+#         # Esto genera una lista global de prioridades, donde todo lo demas puede ir a la cola
+#         map_prioridad = {
+#             id_serie: rank + 1
+#             for rank, id_serie in enumerate(
+#                 # Combina ambas listas, prefiriendo la de la configuracion ultima sobre la inferida del dia
+#                 [s for s in lista_config if (s in lista_atenciones)]
+#                 + [s for s in lista_atenciones if (s not in lista_config)]
+#             )
+#         }
+
+#         # TODO: Esta parte genera una lista de prioridades en la configuracion del dia,
+#         # resolviendo incompatibilidades de que algo no esté originalmente.
+#         df_configuraciones = (
+#             dataset.atenciones.select(["IdEsc", "IdSerie"])
+#             .unique(keep="first")
+#             .sort(by=["IdEsc", "IdSerie"], descending=[True, True])
+#             .with_columns(prioridad=pl.col("IdSerie").replace(map_prioridad, default=None))
+#         )
+
+#         # Esta es la tabla de metadata para las series, por separado por comprension
+#         df_series_meta = (
+#             dataset.configuraciones.select(["IdSerie", "serie", "tiempo_maximo_espera"])
+#             .unique(keep="first")
+#             .with_columns(prioridad=pl.col("IdSerie").replace(map_prioridad, default=None))
+#         )
+
+#         # Se unifica con la de configuracion diaria
+#         df_configuraciones = df_configuraciones.join(df_series_meta, on="IdSerie")
+
+#         # EMPIEZA A CONSTRUIR LA PLANIFICACION DESDE HORARIOS Y ESCRITORIOS
+#         horarios = dataset.atenciones.group_by(by=["IdEsc"]).agg(
+#             inicio=pl.min("FH_Emi").dt.round("1h"),
+#             termino=pl.max("FH_AteIni").dt.round("1h"),
+#         )
+
+#         self.planificacion = {
+#             e["IdEsc"]: [
+#                 {
+#                     "inicio": str(e["inicio"].time()),
+#                     "termino": str(e["termino"].time()),
+#                     "propiedades": {
+#                         # Esta parte saca los skills comparando con el dict de configs
+#                         "skills": df_configuraciones.filter(pl.col("IdEsc") == e["IdEsc"])["IdSerie"].to_list(),
+#                         # asumimos que la configuracion de todos es rebalse
+#                         # TODO: el porcentaje de actividad es mas complicado, asumire un 80%
+#                         "configuracion_atencion": "Rebalse",
+#                         "porcentaje_actividad": 0.80,
+#                         # Esto es innecesariamente nested
+#                         "atributos_series": [
+#                             {
+#                                 "serie": s["IdSerie"],
+#                                 "sla_porcen": 80,  # Un valor por defecto
+#                                 "sla_corte": s["tiempo_maximo_espera"],
+#                                 "pasos": 1,  # Un valor por defecto
+#                                 "prioridad": s["prioridad"],
+#                             }
+#                             for s in df_configuraciones.filter(pl.col("IdEsc") == e["IdEsc"]).to_dicts()
+#                         ],
+#                     },
+#                 }
+#             ]
+#             for e in horarios.to_dicts()
+#         }
+
+#         # No usamos Polars depues de esto
+#         if True:  # not DF_POLARS:
+#             self.atenciones = self.atenciones.to_pandas()
+
+#         return self.atenciones, self.planificacion
+
+#     # METADATA
+#     __version__ = 2.0  # El otro es la version original. Este REQUIERE una db.
+
 class DatasetTTP(BaseModel):
     """
     Tablas de atenciones y configuraciones
@@ -465,45 +648,49 @@ class DatasetTTP(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     # Componentes que deben poder entrar inmediatamente al simulador
-    atenciones: pd.DataFrame = None  # TODO: reemplazar por Pandera
+    atenciones: pd.DataFrame | pl.DataFrame = None  # TODO: reemplazar por Pandera
     planificacion: dict = None  # TODO: reemplazar por Pydantic
-    configuraciones: pd.DataFrame = None  # Post-inicializado
+    configuraciones: pd.DataFrame | pl.DataFrame = None  # Post-inicializado
+
+    # Fechas que se extiende el dataset
+    FH_min: datetime = None
+    FH_max: datetime = None
+
+    # Fechas que se extiende el dataset cargado
+    atenciones_FH_min: datetime = None
+    atenciones_FH_max: datetime = None
+
+    # Mete todo en un caché para este objeto, para asi tener que es cacheable o no
+    def __hash__(self):
+        return hash(f"{self.id_oficina}, {self.FH_max}") # {self.atenciones_FH_max},{self.atenciones_FH_min}")
+
 
     def model_post_init(self, _) -> None:
         # Llama a la ultima configuracion de la oficina
         self.configuraciones = pl.read_database_uri(
             uri=self.connection_string,
             query=f"""
-            SELECT
-                -- INFORMACION DE ESCRITORIOS
-                "EscritorioSerie"."IdOficina",
-                "Oficinas"."oficina" AS "oficina", 
-                "EscritorioSerie"."IdEsc",
-                "Escritorios"."Modo" AS "configuracion_atencion",
-                "EscritorioSerie"."IdSerie",
-                "Series"."Serie" AS "serie",
-                "EscritorioSerie"."Prioridad" AS "prioridad",-- Cosas para planificacion
-                "EscritorioSerie"."Alterna" AS "pasos", -- Cosas para planificacion
-                "Series"."tMaxEsp" AS "tiempo_maximo_espera"
-            FROM "EscritorioSerie"
-                JOIN "Oficinas" ON 
-                    "EscritorioSerie"."IdOficina" = "Oficinas"."IdOficina"
-                JOIN "Series" ON 
-                    "Series"."IdOficina" = "EscritorioSerie"."IdOficina" AND
-                    "Series"."IdSerie"   = "EscritorioSerie"."IdSerie"
-                JOIN "Escritorios" ON 
-                    "Escritorios"."IdOficina" = "EscritorioSerie"."IdOficina" AND
-                    "Escritorios"."IdEsc"     = "EscritorioSerie"."IdEsc"
-            WHERE ("EscritorioSerie"."IdOficina" = {self.id_oficina})
-        """,
+            SELECT * FROM Configuraciones WHERE (IdOficina = {self.id_oficina});
+            """,
         ).sort(by=["IdEsc", "prioridad"])
+
+        # Determina los rangos en que se puede llamar este dataset
+        self.FH_min, self.FH_max = (
+            pl.read_database_uri(
+                uri=self.connection_string,
+                query="SELECT min(FH_Emi) AS min, max(FH_Emi) AS max FROM Atenciones;",
+            )
+            .to_dicts()[0]
+            .values()
+        )
 
     # Metodos para rellenar atenciones y planificacion
     def forecast(self):
-        # Conectare la logica luego
+        # Conectare la logica luego. La idea es poder dejar los forecast en la base de datos, 
+        # para pre-calcularlos, dado que eso demora unos minutos y es algo tedioso
         raise NotImplementedError
 
-    def un_dia(self, fecha: date):
+    def un_dia(self, fecha: date) -> tuple[pd.DataFrame, dict]:
         """
         Modifica las `atenciones` y `planificacion` a una fecha historica
 
@@ -515,26 +702,28 @@ class DatasetTTP(BaseModel):
         # PARTE TRIVIAL, LEE LAS ATENCIONES DE UNA FECHA
         fecha = pd.Timestamp(fecha)  # Converte la fecha a un timestamp
 
+        # NOTA: el query llama a las columnas por nombre para asi verificar que estas están
+        # en el schema de la base de datos, else, se rompe por un error de MySQL.
         self.atenciones = pl.read_database_uri(
             uri=self.connection_string,
             query=f"""
-            SELECT
-                "IdOficina", -- Sucursal fisica
-                "IdSerie",   -- Motivo de atencion
-                "IdEsc",     -- Escritorio de atencion
-                "FH_Emi",    -- Emision del tiquet, con...
-                "FH_Llama",  -- ...hora de llamada a resolverlo,...
-                "FH_AteIni", -- ...inicio de atencion, y...
-                "FH_AteFin"  -- ...termino de atencion
-            
-            FROM "Atenciones"
-
+            SELECT 
+                IdOficina, -- Sucursal fisica
+                IdSerie,   -- Motivo de atencion
+                IdEsc,     -- Escritorio de atencion
+                FH_Emi,    -- Emision del tiquet, con...
+                FH_Llama,  -- ...hora de llamada a resolverlo,...
+                FH_AteIni, -- ...inicio de atencion, y...
+                FH_AteFin, -- ...termino de atencion
+                t_esp,     -- Tiempo de espera    
+                t_ate      -- Tiempo de atención
+            FROM 
+                Atenciones
             WHERE
-                ("IdOficina" = {self.id_oficina} ) AND -- Selecciona solo una oficina, segun arriba
-                ("FH_Emi" > '{fecha}') AND ("FH_Emi" < '{fecha + pd.Timedelta(days=1)}') AND -- solo el dia
-                ("FH_Llama" IS NOT NULL) -- CON atenciones
+                (IdOficina = {self.id_oficina} ) AND -- Selecciona solo una oficina, segun arriba
+                (FH_Emi > '{fecha}') AND (FH_Emi < '{fecha + pd.Timedelta(days=1)}') -- solo el dia
 
-            ORDER BY "FH_Emi" DESC -- Ordenado de mas reciente hacia atras (posiblemente innecesario);
+            ORDER BY FH_Emi DESC -- Ordenado de mas reciente hacia atras (posiblemente innecesario);
             """,
         )
 
@@ -542,10 +731,15 @@ class DatasetTTP(BaseModel):
         if self.atenciones.is_empty():
             raise Exception("Tabla de atenciones vacia", f"Fecha sin atenciones: {fecha}")
 
+        # Update del caché de atenciones 
+        self.atenciones_FH_min = self.atenciones["FH_Emi"].min()
+        self.atenciones_FH_max = self.atenciones["FH_Emi"].max()
+
+
         # PRIORIDADES DE SERIES, COMPATIBLE CON INFERIDAS Y GUARDADAS EN CONFIG
         lista_config = (
             # Lista de prioridades por serie, en la configuracion ultima
-            dataset.configuraciones.group_by(by=["IdSerie"])
+            self.configuraciones.group_by(by=["IdSerie"])  # BUG: el linter no reconoce esto correctamente
             .agg(pl.mean("prioridad"), pl.count("IdEsc"))
             .sort(by=["prioridad", "IdEsc"], descending=[False, True])["IdSerie"]
             .to_list()
@@ -553,7 +747,7 @@ class DatasetTTP(BaseModel):
 
         lista_atenciones = (
             # Usa un contador de atenciones para rankear mas arriba con mas atenciones
-            dataset.atenciones["IdSerie"].value_counts().sort(by="counts", descending=True)["IdSerie"].to_list()
+            self.atenciones["IdSerie"].value_counts().sort(by="counts", descending=True)["IdSerie"].to_list()
         )
 
         # Esto genera una lista global de prioridades, donde todo lo demas puede ir a la cola
@@ -569,7 +763,7 @@ class DatasetTTP(BaseModel):
         # TODO: Esta parte genera una lista de prioridades en la configuracion del dia,
         # resolviendo incompatibilidades de que algo no esté originalmente.
         df_configuraciones = (
-            dataset.atenciones.select(["IdEsc", "IdSerie"])
+            self.atenciones.select(["IdEsc", "IdSerie"])
             .unique(keep="first")
             .sort(by=["IdEsc", "IdSerie"], descending=[True, True])
             .with_columns(prioridad=pl.col("IdSerie").replace(map_prioridad, default=None))
@@ -577,7 +771,7 @@ class DatasetTTP(BaseModel):
 
         # Esta es la tabla de metadata para las series, por separado por comprension
         df_series_meta = (
-            dataset.configuraciones.select(["IdSerie", "serie", "tiempo_maximo_espera"])
+            self.configuraciones.select(["IdSerie", "serie", "tiempo_maximo_espera"])
             .unique(keep="first")
             .with_columns(prioridad=pl.col("IdSerie").replace(map_prioridad, default=None))
         )
@@ -586,7 +780,7 @@ class DatasetTTP(BaseModel):
         df_configuraciones = df_configuraciones.join(df_series_meta, on="IdSerie")
 
         # EMPIEZA A CONSTRUIR LA PLANIFICACION DESDE HORARIOS Y ESCRITORIOS
-        horarios = dataset.atenciones.group_by(by=["IdEsc"]).agg(
+        horarios = self.atenciones.group_by(by=["IdEsc"]).agg(
             inicio=pl.min("FH_Emi").dt.round("1h"),
             termino=pl.max("FH_AteIni").dt.round("1h"),
         )
@@ -626,116 +820,8 @@ class DatasetTTP(BaseModel):
 
         return self.atenciones, self.planificacion
 
-    # METADATA
-    __version__ = 2.0  # El otro es la version original. Este REQUIERE una db.
-# @dataclass
-# class DatasetTTP:
-#     atenciones : pd.DataFrame
-#     atenciones_agg : pd.DataFrame
-#     atenciones_agg_dia : pd.DataFrame
-
-#     @staticmethod
-#     def _reshape_df_atenciones(df : pd.DataFrame, resample = "60t") -> 'pd.DataFrame':
-
-#         resampler = ( df
-#             .set_index("FH_Emi")
-#             .groupby(by=["IdOficina","IdSerie"])
-#             .resample(resample)
-#         )
-
-#         medianas = resampler.median()[["T_Esp","T_Ate"]]
-
-#         medianas["Demanda"] = ( resampler
-#             .count().IdSerie
-#             .rename("Demanda") # Esto es una serie, asi que solo tiene un nombre
-#             # .reset_index(level="IdSerie") #
-#         )
-
-#         return medianas[["Demanda","T_Esp","T_Ate"]]
-
-#     @staticmethod
-#     def _atenciones_validas( df ) -> 'pd.DataFrame':
-#         """Un helper para limpiar la data en base a ciertas condiciones logicas"""
-
-#         # TODO: implementar loggin de cosas (n) que se eliminan en estas atenciones raras
-#         # TODO: Posiblemente limpiar esto en un unico . . ., o usar Polars
-#         df = df.dropna( how = 'any' ) # Inmediatamente elimina los NaN
-#         df = df[~(df["FH_Emi"] == df["FH_AteFin"])]
-#         df = df[~(df["FH_AteIni"] == df["FH_Emi"])]
-#         df = df[~(df["FH_AteIni"] == df["FH_AteFin"])]
-#         df = df[~(df["FH_Emi"] > df["FH_Llama"])]
-#         df = df[~((df["FH_Llama"] - df["FH_Emi"]) > pd.Timedelta(hours=12))]
-#         df = df[~((df["FH_AteIni"] - df["FH_Llama"]) > pd.Timedelta(hours=1))]
-#         df = df[~((df["FH_AteFin"] - df["FH_AteIni"]) < pd.Timedelta(seconds=5))]
-
-#         return df
-
-#     @staticmethod
-#     def desde_csv_atenciones( csv_path : str ) -> 'DatasetTTP':
-#         df = pd.read_csv( csv_path, 
-#             usecols = ["IdOficina","IdSerie","IdEsc","FH_Emi","FH_Llama","FH_AteIni","FH_AteFin"], 
-#             parse_dates = [3, 4, 5, 6]
-#             ).astype({
-#                 "IdOficina" : "Int32",
-#                 "IdSerie" : "Int8",
-#                 "IdEsc" : "Int8",
-#                 "FH_Emi" : "datetime64[s]",
-#                 "FH_Llama" : "datetime64[s]",
-#                 "FH_AteIni" : "datetime64[s]",
-#                 "FH_AteFin" : "datetime64[s]",
-#             })
-        
-#         df = DatasetTTP._atenciones_validas(df) # Corre la funcion de limpieza
-
-#         df["T_Esp"] = ( df["FH_AteIni"] - df["FH_Emi"] ).dt.seconds 
-#         df["T_Ate"] = ( df["FH_AteFin"] - df["FH_AteIni"] ).dt.seconds 
-
-#         return DatasetTTP( 
-#             atenciones = df, 
-#             atenciones_agg = DatasetTTP._reshape_df_atenciones( df ),
-#             atenciones_agg_dia = DatasetTTP._reshape_df_atenciones( df, resample = '1D' )
-#          )
 
 
-#     @staticmethod
-#     def desde_sql_server() -> 'DatasetTTP':
-
-#         sql_query = """-- La verdad esto podria ser un View, pero no sé si eso es mas rapido en MS SQL --
-#         SELECT
-#             -- TOP 5000 -- Por motivos de rendimiento
-#             IdOficina, -- Sucursal fisica
-#             IdSerie,   -- Motivo de atencion
-#             IdEsc,     -- Escritorio de atencion
-
-#             FH_Emi,    -- Emision del tiquet, con...
-#             -- TIEMPO DE ESPERA A REDUCIR --
-#             FH_Llama,  -- ... hora de llamada a resolverlo,  ...
-#             FH_AteIni, -- ... inicio de atencion, y
-#             FH_AteFin  -- ... termino de atencion
-
-#         FROM Atenciones -- Unica tabla que estamos usando por ahora -- MOCK
-#         -- FROM dbo.Atenciones -- Unica tabla que estamos usando por ahora -- REAL
-
-#         WHERE
-#             (IdSerie IN (10, 11, 12, 14, 5)) AND 
-#             (FH_Emi > '2023-01-01 00:00:00') AND     -- De este año
-#             (FH_Llama IS NOT NULL) AND (Perdido = 0) -- CON atenciones
-            
-#         ORDER BY FH_Emi DESC; -- Ordenado de mas reciente hacia atras (posiblemente innecesario)"""
-#         raise NotImplementedError("Este metódo aún no está implementado.")
-
-
-#     @staticmethod
-#     def desde_csv_batch() -> 'DatasetTTP':
-#         raise NotImplementedError("Este metódo aún no está implementado.")
-
-#     def un_dia(self, dia : date):
-#         """Retorna las atenciones de un dia historico"""
-
-#         inicio_dia = pd.Timestamp( dia )
-#         fin_dia = pd.Timestamp( dia ) + pd.Timedelta(days=1)
-
-#         return self.atenciones[ (inicio_dia <= self.atenciones["FH_Emi"]) & (self.atenciones["FH_Emi"] <= fin_dia) ]
     
 def get_random_non_empty_subset(lst):
     # Step 1: Check that the input list is not empty
