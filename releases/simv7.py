@@ -25,6 +25,52 @@ import polars as pl  # DFs, es más rapido
 from pydantic import BaseModel, Field, ConfigDict  # Validacion de datos
 from itertools import chain, combinations
 
+
+def transform_to_dataframe(input_data):
+    # Initialize a dictionary to hold the processed data
+    processed_data = {}
+
+    # Iterate through the intervals (e.g., 'intervalo_0')
+    for interval, values in input_data.items():
+        # Iterate through the sub-dictionaries in each interval
+        for sub_interval, records in values.items():
+            # Process each record
+            for record in records:
+                inicio = record['inicio']
+                termino = record['termino']
+                time_key = f"{inicio}-{termino}"
+
+                # Prepare the string for DataFrame entry
+                skills = record['propiedades']['skills']
+                config_atencion = record['propiedades']['configuracion_atencion']
+                data_entry = f"{skills}, {config_atencion}"
+
+                # Add the entry to the processed data
+                if time_key not in processed_data:
+                    processed_data[time_key] = []
+                processed_data[time_key].append(data_entry)
+
+    # Ensure each time interval has the same number of entries
+    max_length = max(len(v) for v in processed_data.values())
+    for key in processed_data:
+        while len(processed_data[key]) < max_length:
+            processed_data[key].append('')
+
+    # Create the DataFrame
+    df = pd.DataFrame(processed_data)
+    return df
+
+def update_configuracion_atencion(input_data):
+    # Iterate through the keys (e.g., '5', '10', '11')
+    for key, records in input_data.items():
+        # Process each record
+        for record in records:
+            # Check if 'skills' has length of one
+            if len(record['propiedades']['skills']) == 1:
+                # Update 'configuracion_atencion' to 'FIFO'
+                record['propiedades']['configuracion_atencion'] = 'FIFO'
+
+
 def plan_unico(lst_of_dicts):
     new_list = []    
     # Initialize a counter for the new globally unique keys
