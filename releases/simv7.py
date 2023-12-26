@@ -587,9 +587,9 @@ def atributos_x_serie(ids_series, sla_porcen_user=None, sla_corte_user=None, pas
 
     att_x_s = atributos_de_series(ids_series = ids_series)
 
-    return att_x_s.atributo(sla_porcen_user, 'sla_porcen', 70, 85).atributo(
-            sla_corte_user, 'sla_corte', 10*60, 30*60).atributo(
-                pasos_user, 'pasos',1,3).prioridades(prioridades_user).atributos_x_series
+    return att_x_s.atributo(sla_porcen_user, 'sla_porcen', 70, 90).atributo(
+            sla_corte_user, 'sla_corte', 5*60, 10*60).atributo(
+                pasos_user, 'pasos',1,4).prioridades(prioridades_user).atributos_x_series
 
 def obtener_skills(un_dia):   
 
@@ -1631,7 +1631,7 @@ def plan_desde_skills(skills, inicio, porcentaje_actividad=None):
 def simv7_1(un_dia, hora_cierre, planificacion, log_path: str = "dev/simulacion.log", probabilidad_pausas:float=0.5, factor_pausas:float=.06, params_pausas:list=[1/10,1/2,1]):
     un_dia["FH_AteIni"] = None
     un_dia["FH_AteFin"] = None
-    un_dia["IdEsc"] = None
+    #un_dia["IdEsc"] = None
 
     reloj = reloj_rango_horario(str(un_dia.FH_Emi.min().time()), hora_cierre)
     registros_atenciones = pd.DataFrame()

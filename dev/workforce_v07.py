@@ -33,28 +33,10 @@ ID_OFICINA = 2
 FECHA      = "2023-03-15"
 DB_CONN    = "mysql://autopago:Ttp-20238270@totalpackmysql.mysql.database.azure.com:3306/capacity_data_fonasa"
 dataset    = sim.DatasetTTP(connection_string=DB_CONN, id_oficina=ID_OFICINA)
-
-
-# el_dia_real, plan  = dataset.un_dia(fecha=FECHA)
-
-# el_dia_real['T_Ate'] = (el_dia_real['FH_AteFin'] - el_dia_real['FH_AteIni']).astype('timedelta64[s]').dt.total_seconds().astype(int)
-# el_dia_real['T_Esp'] = (el_dia_real['FH_AteIni'] - el_dia_real['FH_Emi']).astype('timedelta64[s]').dt.total_seconds().astype(int)
-# el_dia_real = el_dia_real.sort_values(by='FH_Emi', inplace=False).astype(
-#     {
-#         'FH_Emi': 'datetime64[s]',
-#         'FH_Llama': 'datetime64[s]',
-#         'FH_AteIni': 'datetime64[s]',
-#         'FH_AteFin': 'datetime64[s]',}).reset_index(drop=True)
-# porcentaje_actividad =.8
-# planificacion_wfm    =  plan_para_wfm(sim.plan_desde_skills(skills=sim.obtener_skills(el_dia_real) , 
-#                                                 inicio = '08:00:00', 
-#                                                 porcentaje_actividad=.8))
-
-
-def objective(trial, el_dia_real, intervalo, planificacion_wfm, skills_subsets_x_escr, series, optimizar:str='SLA'):
+def objective(trial, part_dia, intervalo,hora_cierre ,planificacion_wfm, skills_subsets_x_escr, series,pesos_x_serie, optimizar:str='SLA'):
     
     planificacion_optuna    = copy.deepcopy(planificacion_wfm)
-    modos_atenciones : list = ["Alternancia", "FIFO", "Rebalse"]
+    modos_atenciones : list = ["Alternancia", 'Rebalse', "FIFO"]
     pasos_trial = {}
     try:
         for j,((k,v),s) in enumerate(zip(planificacion_wfm.items(), skills_subsets_x_escr)):
@@ -71,7 +53,7 @@ def objective(trial, el_dia_real, intervalo, planificacion_wfm, skills_subsets_x
             planificacion_optuna[k][0]['propiedades']['skills']                 = escr_skills
             planificacion_optuna[k][0]['propiedades']['configuracion_atencion'] = modo_atencion
             planificacion_optuna[k][0]['inicio']                                = intervalo[0]
-            planificacion_optuna[k][0]['termino']                               = intervalo[1]  
+            planificacion_optuna[k][0]['termino']                               = intervalo[1] if intervalo[1] is not None else None
   
             
             if modo_atencion== 'Alternancia':
@@ -108,12 +90,12 @@ def objective(trial, el_dia_real, intervalo, planificacion_wfm, skills_subsets_x
 
         
         registros_atenciones, fila = sim.simv7_1(
-                                    un_dia           = el_dia_real , 
-                                    hora_cierre      = intervalo[1], 
+                                    un_dia           = part_dia , 
+                                    hora_cierre      = hora_cierre,#"15:00:00",#intervalo[1], 
                                     planificacion    = planificacion_optuna,
-                                    probabilidad_pausas =  0.75,      # 'V24_Afpmodelo': .75 ,           #'V24_Provida' .7,            # V24_Fonav30:   0.8, 
-                                    factor_pausas       = .020,        #'V24_Afpmodelo': 0.20,           #'V24_Provida' .2,            # V24_Fonav30:  .05,
-                                    params_pausas       =  [0, 1/3, 1] ,#'V24_Afpmodelo': [0, 1/3, 1]    #'V24_Provida' [0, 1/5, 1/4], #V24_Fonav30:   [0, 1/10, 1/2]
+                                    probabilidad_pausas =  .5,      # 'V24_Afpmodelo': .75 ,           #'V24_Provida' .7,            # V24_Fonav30:   0.8, 
+                                    factor_pausas       = .05,        #'V24_Afpmodelo': 0.20,           #'V24_Provida' .2,            # V24_Fonav30:  .05,
+                                    params_pausas       =  [0, 1/10, 1] ,#'V24_Afpmodelo': [0, 1/3, 1]    #'V24_Provida' [0, 1/5, 1/4], #V24_Fonav30:   [0, 1/10, 1/2]
                                 )
         
         
@@ -124,109 +106,48 @@ def objective(trial, el_dia_real, intervalo, planificacion_wfm, skills_subsets_x
         mins_de_corte_SLA     = [int(v[1])for k,v in niveles_servicio_x_serie.items()]        
         df_pairs              = [(sim.sla_x_serie(r_x_s, '1H', corte = corte), s) 
                                     for r_x_s, s, corte in zip(registros_x_serie, series, mins_de_corte_SLA)]
-        porcentajes_reales    = {f"serie: {serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
-        assert not any(math.isnan(x) for x in [v for k, v in porcentajes_reales.items()]), "porcentajes_reales contains at least one nan"
+        porcentajes_reales    = {f"{serie}": np.mean(esperas.espera) for ((demandas, esperas), serie) in df_pairs} 
+        #assert not any(math.isnan(x) for x in [v for k, v in porcentajes_reales.items()]), "porcentajes_reales contains at least one nan"
 
         #print(f"porcentajes_reales {porcentajes_reales}")
 
         trial.set_user_attr('planificacion', planificacion_optuna) 
-        dif_cuadratica        = {k:((sla_real-sla_teorico)**2 if sla_real < sla_teorico else abs((sla_real-sla_teorico)) ) 
+        dif_cuadratica        = {k:((sla_real-sla_teorico)**2 if sla_real < sla_teorico else 0 ) #abs((sla_real-sla_teorico)) 
                                  for ((k,sla_real),sla_teorico) in zip(porcentajes_reales.items(),pocentajes_SLA)}
+        
+        dif_cuadratica = {key: int(dif_cuadratica[key] * pesos_x_serie[key]) for key in dif_cuadratica}
+
+        #print(f"dif_cuadratica {dif_cuadratica}")
 
         if optimizar == "SLA":
             
-            #print(f"--OBJ-- maximizar_SLAs           {tuple(dif_cuadratica.values())}")
-            return  tuple((dif_cuadratica.values()))
+            print(f"--OBJ-- maximizar_SLAs           {tuple((dif_cuadratica.values()))  + (len(fila)**2,)}")
+            return                                    tuple((dif_cuadratica.values()))  + (len(fila)**2,)
         
         elif optimizar == "SLA + escritorios":
-            print(f"maximizar_SLAs y minimizar_escritorios { tuple(dif_cuadratica.values()) + (sum(boolean_vector),)}")
-            return  tuple((dif_cuadratica.values())) + (int(sum(boolean_vector)),)
+            print(f"maximizar_SLAs y minimizar_escritorios {tuple((dif_cuadratica.values())) + (int(sum(boolean_vector)),) + (len(fila)**2,)}")
+            return                                          tuple((dif_cuadratica.values())) + (int(sum(boolean_vector)),) + (len(fila)**2,)
 
                                 
         elif optimizar == "SLA + skills":
             
-            print(f"maximizar_SLAs y minimizar_skills { tuple(dif_cuadratica.values()) + (sim.extract_skills_length(planificacion_optuna)**2,) }")
-            return  tuple((dif_cuadratica.values())) + (int(sim.extract_skills_length(planificacion_optuna)**2),)
+            print(f"maximizar_SLAs y minimizar_skills { tuple((dif_cuadratica.values())) + (int(sim.extract_skills_length(planificacion_optuna)**2),)  + (len(fila)**2,)}")
+            return                                      tuple((dif_cuadratica.values())) + (int(sim.extract_skills_length(planificacion_optuna)**2),)  + (len(fila)**2,)
         
         elif optimizar == "SLA + escritorios + skills":
             
-            print(f"SLA + escritorios + skills { tuple(dif_cuadratica.values()) + (sum(boolean_vector),) + (sim.extract_skills_length(planificacion_optuna)**2,)}")
-            return  tuple((dif_cuadratica.values())) + (int(sum(boolean_vector),)) + (int(sim.extract_skills_length(planificacion_optuna)**2),)               
+            print(f"SLA + escritorios + skills {tuple((dif_cuadratica.values())) + (int(sum(boolean_vector)),) + (int(sim.extract_skills_length(planificacion_optuna)**2),)  + (len(fila)**2,)}")
+            return                              tuple((dif_cuadratica.values())) + (int(sum(boolean_vector)),) + (int(sim.extract_skills_length(planificacion_optuna)**2),)  + (len(fila)**2,)              
     except Exception as e:
         print(f"An exception occurred: {e}")
         raise optuna.TrialPruned()
 
-# skills_subsets_x_escr    = [sim.non_empty_subsets(sorted(v[0]['propiedades']['skills'])) for k,v in planificacion_wfm.items()]
-
-
-# niveles_servicio_x_serie = {atr_dict['serie']:
-#                             (atr_dict['sla_porcen']/100, atr_dict['sla_corte']) 
-#                             for atr_dict in planificacion_wfm['5'][0]['propiedades']['atributos_series']}
-
-# series                   = list(niveles_servicio_x_serie.keys())
-# start_time               = time.time()
-
-# optimizar    = "SLA + skills" #"SLA + escritorios" #"SLA" #"SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
-
-# hora_cierre  = '17:00:00'  
-# n_objs       = int(
-#                         len(series)
-#                         if optimizar == "SLA"
-#                         else len(series) + 1
-#                         if optimizar in {"SLA + escritorios", "SLA + skills"}
-#                         else len(series) + 2
-#                         if optimizar == "SLA + escritorios + skills"
-#                         else None
-#                         )
-# sampler = optuna.multi_objective.samplers.NSGAIIMultiObjectiveSampler()
-# IA      = optuna.multi_objective.create_study(directions= n_objs*['minimize'], sampler=sampler)
-# import logging
-# #logging.getLogger('optuna').setLevel(logging.WARNING)
-# IA.optimize(lambda trial: objective(trial, 
-#                                     el_dia_real = el_dia_real,
-#                                     hora_cierre = "17:00:00",
-#                                     planificacion_wfm   = planificacion_wfm,
-#                                     skills_subsets_x_escr=skills_subsets_x_escr,
-#                                     series = series,
-#                                     optimizar = optimizar,
-#                                            ),
-#                    n_trials  = 15, #int(1e4),  # Make sure this is an integer
-#                    n_jobs=1,
-#                    #timeout   = 2*3600,   #  hours
-#                    )  
-
-# planificacion_optuna = [trial for trial in IA.trials if trial.state == optuna.trial.TrialState.COMPLETE][-1].user_attrs.get('planificacion')
-# end_time = time.time()
-
-# print(f"tiempo total: {(end_time - start_time)/60:.1f} minutos")
-
-
-######################
-#------Simulacion-----
-######################
-# import time
-# start_time           = time.time()
-# hora_cierre          = "18:30:00"
-# registros_atenciones, fila = sim.simv7_1(
-#                             un_dia           = el_dia_real , 
-#                             hora_cierre      = hora_cierre, 
-#                             planificacion    = planificacion_optuna,
-#                             probabilidad_pausas =  0.75,      # 'V24_Afpmodelo': .75 ,           #'V24_Provida' .7,            # V24_Fonav30:   0.8, 
-#                             factor_pausas       = .020,        #'V24_Afpmodelo': 0.20,           #'V24_Provida' .2,            # V24_Fonav30:  .05,
-#                             params_pausas       =  [0, 1/3, 1] ,#'V24_Afpmodelo': [0, 1/3, 1]    #'V24_Provida' [0, 1/5, 1/4], #V24_Fonav30:   [0, 1/10, 1/2]
-#                         )
-#     #, log_path="dev/simulacion.log")
-# print(f"{len(registros_atenciones) = }, {len(fila) = }")
-# end_time = time.time()
-# print(f"tiempo total: {end_time - start_time:.1f} segundos")
-# sim.compare_historico_vs_simulacion(el_dia_real, registros_atenciones,  ID_DATABASE, ID_OFICINA,FECHA ,porcentaje_actividad)
 
 ###########################################
 #------Implementacion para intevalos--------
 ############################################
 
 el_dia_real, _  = dataset.un_dia(fecha=FECHA)
-el_dia_real, plan  = dataset.un_dia(fecha=FECHA)
 
 el_dia_real['T_Ate'] = (el_dia_real['FH_AteFin'] - el_dia_real['FH_AteIni']).astype('timedelta64[s]').dt.total_seconds().astype(int)
 el_dia_real['T_Esp'] = (el_dia_real['FH_AteIni'] - el_dia_real['FH_Emi']).astype('timedelta64[s]').dt.total_seconds().astype(int)
@@ -242,24 +163,26 @@ planificacion_wfm    =  plan_para_wfm(sim.plan_desde_skills(skills=sim.obtener_s
                                                 porcentaje_actividad=.8))
 
 skills_subsets_x_escr    = [sim.non_empty_subsets(sorted(v[0]['propiedades']['skills'])) for k,v in planificacion_wfm.items()]
-
+[l.reverse() for l in skills_subsets_x_escr]
 
 niveles_servicio_x_serie = {atr_dict['serie']:
                             (atr_dict['sla_porcen']/100, atr_dict['sla_corte']) 
                             for atr_dict in planificacion_wfm['5'][0]['propiedades']['atributos_series']}
 
 series                   = list(niveles_servicio_x_serie.keys())
+n_intervalos = 4
+intervals  = sim.get_time_intervals(el_dia_real, n = n_intervalos) # Una funcion que recibe un dia, un intervalo, y un porcentaje de actividad para todos los intervalos
+#intervals  = [(x[0], None) if i == len(intervals) - 1 else x for i, x in enumerate(intervals)]
 
-intervals  = sim.get_time_intervals(el_dia_real, n = 4) # Una funcion que recibe un dia, un intervalo, y un porcentaje de actividad para todos los intervalos
 partitions = sim.partition_dataframe_by_time_intervals(el_dia_real, intervals) # TODO: implementar como un static del simulador? 
-n_trials   = 50
-optimizar    = "SLA + skills" #"SLA + escritorios" #"SLA" #"SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
+n_trials   = 1000
+optimizar    = "SLA" #SLA + escritorios + skills"# "SLA + skills" #SLA + escritorios" #"SLA + escritorios + skills" #"SLA + escritorios" #"SLA" #"SLA + escritorios + skills" #"SLA" | "SLA + escritorios" | "SLA + skills" | "SLA + escritorios + skills"
 n_objs       = int(
-                        len(series)
+                        len(series) + 1
                         if optimizar == "SLA"
-                        else len(series) + 1
-                        if optimizar in {"SLA + escritorios", "SLA + skills"}
                         else len(series) + 2
+                        if optimizar in {"SLA + escritorios", "SLA + skills"}
+                        else len(series) + 3
                         if optimizar == "SLA + escritorios + skills"
                         else None
                         )
@@ -267,24 +190,29 @@ n_objs       = int(
 
 start_time           = time.time()
 storage = optuna.storages.get_storage("sqlite:///alejandro_wfm7.db")
-
+hora_cierre = "14:00:00"
+tiempo_max_resultados = 60*4 #secs
+pesos_x_serie = {'5': 1, '10': 20, '11': 1, '12': 10, '14': 20, '17':15}
+#pesos_x_serie = {str(s):1 for s in series}
 for idx, (part, intervalo) in enumerate(zip(partitions,intervals)):
-    study_name = f"intervalo_{idx}"
+    study_name = f"{optimizar.replace(' + ', '_')}_n_intervalos_{n_intervalos}_intervalo_{idx}"
     IA = optuna.multi_objective.create_study(directions= n_objs*['minimize'],
                                                 study_name=study_name,
                                                 storage=storage, load_if_exists=True)
     print(f"idx: {idx}, {intervalo} study_name: {study_name}")
     IA.optimize(lambda trial: objective(trial, 
-                                    el_dia_real = part,
+                                    part_dia = part,
                                     intervalo = intervalo,
+                                    hora_cierre = hora_cierre,
                                     planificacion_wfm   = planificacion_wfm,
                                     skills_subsets_x_escr=skills_subsets_x_escr,
                                     series = series,
                                     optimizar = optimizar,
+                                    pesos_x_serie = pesos_x_serie
                                            ),
                    n_trials  = n_trials, #int(1e4),  # Make sure this is an integer
                    n_jobs=1,
-                   #timeout   = 2*3600,   #  hours
+                   timeout   = int(tiempo_max_resultados/n_intervalos),   #  hours
                    )  
 end_time = time.time()
 print(f"tiempo total: {end_time - start_time:.1f} segundos")
@@ -292,7 +220,7 @@ print(f"tiempo total: {end_time - start_time:.1f} segundos")
 
 recomendaciones_db   = optuna.storages.get_storage("sqlite:///alejandro_wfm7.db") # Objetivos de 6-salidas
 resumenes            = optuna.study.get_all_study_summaries(recomendaciones_db)
-nombres              = [s.study_name for s in resumenes if "intervalo_" in s.study_name]
+nombres              = [s.study_name for s in resumenes if f"{optimizar.replace(' + ', '_')}_n_intervalos_{n_intervalos}_intervalo_" in s.study_name]
 scores_studios = {}
 for un_nombre in nombres:
     un_estudio            = optuna.multi_objective.load_study(study_name=un_nombre, storage=recomendaciones_db)
@@ -304,7 +232,7 @@ for un_nombre in nombres:
                     } 
 
 
-trials_optimos          = sim.extract_min_value_keys(scores_studios) # Para cada tramo, extrae el maximo, 
+trials_optimos          = sim.extract_min_value_keys(scores_studios) # Para cada tramo, extrae el minmo, 
 planificaciones_optimas = {}   
 for k,v in trials_optimos.items():
     un_estudio               = optuna.multi_objective.load_study(study_name=k, storage=recomendaciones_db)
@@ -316,24 +244,22 @@ for k,v in trials_optimos.items():
                     }   
     
 planificacion_optima_para_sim   =  sim.plan_unico([plan for tramo,plan in planificaciones_optimas.items()])
+planificacion_optima_df         =    sim.transform_to_dataframe(planificaciones_optimas)
 
-
-
-planificacion_optima_df        = sim.transform_to_dataframe(planificaciones_optimas)
-# %%
 ######################
 #------Simulacion-----
 ######################
 # import time
+
 start_time           = time.time()
-hora_cierre          = "18:30:00"
+hora_cierre          = "15:00:00"
 registros_atenciones, fila = sim.simv7_1(
                             un_dia           = el_dia_real , 
                             hora_cierre      = hora_cierre, 
-                            planificacion    = planificacion_optima_para_sim,
-                            probabilidad_pausas =  0.75,      # 'V24_Afpmodelo': .75 ,           #'V24_Provida' .7,            # V24_Fonav30:   0.8, 
-                            factor_pausas       = .020,        #'V24_Afpmodelo': 0.20,           #'V24_Provida' .2,            # V24_Fonav30:  .05,
-                            params_pausas       =  [0, 1/3, 1] ,#'V24_Afpmodelo': [0, 1/3, 1]    #'V24_Provida' [0, 1/5, 1/4], #V24_Fonav30:   [0, 1/10, 1/2]
+                            planificacion    =  planificacion_optima_para_sim,#sim.plan_desde_skills(skills=sim.obtener_skills(el_dia_real), inicio = '08:00:00',porcentaje_actividad=.8) ,#planificacion_optima_para_sim,
+                            probabilidad_pausas =  0.0,      # 'V24_Afpmodelo': .75 ,           #'V24_Provida' .7,            # V24_Fonav30:   0.8, 
+                            factor_pausas       = 1,        #'V24_Afpmodelo': 0.20,           #'V24_Provida' .2,            # V24_Fonav30:  .05,
+                            params_pausas       =  [0, 1/10, 1/5] ,#'V24_Afpmodelo': [0, 1/3, 1]    #'V24_Provida' [0, 1/5, 1/4], #V24_Fonav30:   [0, 1/10, 1/2]
                         )
     #, log_path="dev/simulacion.log")
 print(f"{len(registros_atenciones) = }, {len(fila) = }")
@@ -343,6 +269,8 @@ sim.compare_historico_vs_simulacion(el_dia_real, registros_atenciones,  ID_DATAB
 planificacion_optima_df
 ###############----FIN------------------------
 #%%
+
+
 # foo = {'intervalo_0': 
 #     {'5': [{'inicio': '08:35:47',
 #         'termino': '09:58:42',
