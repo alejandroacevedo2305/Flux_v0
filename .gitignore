@@ -7,4 +7,5 @@ data/
 **/*.gz
 **/*.gzip
 **/*.png
+**/*.log
 tmp/
